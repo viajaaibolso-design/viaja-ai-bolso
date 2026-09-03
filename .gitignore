@@ -1,0 +1,4 @@
+# Pasta onde o app desktop do Claude salva automaticamente uma cópia dos
+# arquivos enviados na conversa — já ficam guardados de propósito dentro
+# de documentacao/, então essa cópia duplicada não precisa entrar no Git.
+Claude outputs/
