@@ -1,0 +1,12 @@
+[
+  {
+    "versao": "1",
+    "data": "27/08/2026",
+    "titulo": "Estado inicial do protótipo (baseline)",
+    "resumo": "Documentação inicial gerada a partir do código-fonte existente do projeto (entregue ao final do 3º período), antes do início de novas implementações. Estabelece o ponto de partida do histórico de mudanças que será usado para a apresentação final do curso.",
+    "mudancas": [
+      "Levantamento completo da arquitetura atual (models, services, screens)",
+      "Nenhuma alteração de código foi feita nesta etapa — apenas documentação do estado existente"
+    ]
+  }
+]

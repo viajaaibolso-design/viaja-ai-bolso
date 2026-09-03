@@ -1,0 +1,19 @@
+name: viaja_ai_app
+description: Viajaí Bolso - Controle seus gastos em cada viagem
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  intl: ^0.19.0
+  shared_preferences: ^2.2.2
+  image_picker: ^1.0.7
+  image_picker_for_web: ^3.0.1
+
+flutter:
+  uses-material-design: true
