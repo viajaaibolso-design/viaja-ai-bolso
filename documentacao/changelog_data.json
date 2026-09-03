@@ -8,5 +8,21 @@
       "Levantamento completo da arquitetura atual (models, services, screens)",
       "Nenhuma alteração de código foi feita nesta etapa — apenas documentação do estado existente"
     ]
+  },
+  {
+    "versao": "2",
+    "data": "03/09/2026",
+    "titulo": "Migração do backend para o Supabase",
+    "resumo": "O backend próprio do protótipo (servidor fixo em 192.168.0.9:5000) foi substituído pelo Supabase: banco de dados Postgres hospedado, autenticação (login, cadastro, recuperação de senha) e armazenamento de arquivos (fotos de perfil e de viagens), tudo acessado via HTTPS. O app Flutter agora fala direto com o Supabase pelo pacote oficial supabase_flutter, sem depender de nenhum servidor próprio rodando. Também foi configurado um repositório Git local no projeto para acompanhamento das mudanças pelo VSCode.",
+    "mudancas": [
+      "Criado o schema do banco (supabase/schema.sql): tabelas profiles, categorias, viagens e despesas, com segurança por usuário via Row Level Security (RLS) e bucket de Storage para fotos",
+      "AuthService reescrito para usar Supabase Auth (login, cadastro, logoff, recuperação de senha por código, alteração de senha e perfil)",
+      "ViagemService, DespesaService e DashboardService reescritos para consultar o Postgres do Supabase diretamente, respeitando as políticas de RLS",
+      "Fotos de perfil e de viagens passam a ser enviadas para o Supabase Storage (antes eram salvas como texto base64 dentro dos próprios registros)",
+      "Identificadores (usuário, viagem, despesa, categoria) passam de números inteiros para UUID, seguindo o padrão do Supabase",
+      "Removida a dependência de SharedPreferences para controlar a sessão — o Supabase Auth já mantém isso automaticamente",
+      "Configurado repositório Git local no projeto (commits com histórico de mudanças, visível pelo VSCode)",
+      "Ainda não testado em um app rodando de verdade (não foi possível compilar o Flutter neste ambiente) — recomenda-se rodar o app e testar cadastro/login/CRUD antes da apresentação"
+    ]
   }
 ]

@@ -7,11 +7,6 @@ Reconstrói o PDF cumulativo a partir do estado atual descrito abaixo + changelo
 Uso:
     python3 generate_doc.py
 Gera: documentacao_projeto.pdf
-
-Observação: este script usa a biblioteca "reportlab" (Python). Se seu ambiente local
-não tiver Python/reportlab instalado, peça para o Claude regenerar o PDF na próxima
-conversa — ele roda este mesmo script no ambiente de nuvem e devolve o PDF atualizado
-aqui na pasta documentacao/.
 """
 
 import json
@@ -176,9 +171,8 @@ h2("1.1 Principais dependências (pubspec.yaml)")
 make_table(
     ["Pacote", "Finalidade"],
     [
-        ["http", "Comunicação com o backend via requisições REST (GET/POST/PUT/DELETE)"],
-        ["shared_preferences", "Persistência local simples — usada para manter a sessão do usuário logado"],
-        ["image_picker / image_picker_for_web", "Seleção de fotos (foto de perfil e foto da viagem), convertidas para base64"],
+        ["supabase_flutter", "Cliente oficial do Supabase: autenticação, banco de dados (Postgres) e armazenamento de arquivos"],
+        ["image_picker / image_picker_for_web", "Seleção de fotos (foto de perfil e foto da viagem), enviadas ao Supabase Storage"],
         ["intl", "Suporte a internacionalização/formatação (incluído, uso pontual)"],
     ],
     [4.5 * cm, 11 * cm],
@@ -191,19 +185,19 @@ body(
     "manualmente com <font face='Courier'>setState</font>:"
 )
 bullets([
-    "<b>constants.dart</b> — configurações globais: endereço do backend e paleta de cores do app.",
+    "<b>constants.dart</b> — configurações globais: URL/chave do projeto Supabase e paleta de cores do app.",
     "<b>models/</b> — classes de dados puras (Despesa, Categoria, Usuario, Viagem), cada uma com "
-    "método <font face='Courier'>fromJson</font> para converter a resposta da API.",
-    "<b>services/</b> — camada de acesso ao backend via HTTP (AuthService, ViagemService, "
-    "DespesaService, DashboardService).",
+    "método <font face='Courier'>fromJson</font> para converter a resposta do banco.",
+    "<b>services/</b> — camada de acesso ao Supabase (AuthService, ViagemService, DespesaService, "
+    "DashboardService, StorageService), usando o cliente <font face='Courier'>supabase_flutter</font>.",
     "<b>screens/</b> — telas do app, que chamam os services diretamente (não há camada intermediária "
     "de controller/repository).",
 ])
 body(
-    "<b>Ponto de atenção técnico:</b> o endereço do backend (<font face='Courier'>baseUrl</font>) está "
-    "fixo no código como um IP de rede local (<font face='Courier'>http://192.168.0.9:5000</font>), "
-    "sem variável de ambiente para produção. Isso será um dos primeiros pontos a resolver na evolução "
-    "do protótipo para app funcional."
+    "<b>Atualização (v2):</b> o app não depende mais de um servidor próprio — desde a migração para o "
+    "Supabase (seção 7, versão 2), o backend é hospedado, acessado sempre via HTTPS, com a segurança de "
+    "cada usuário só acessar os próprios dados garantida por políticas de Row Level Security (RLS) "
+    "diretamente no banco (ver <font face='Courier'>supabase/schema.sql</font>)."
 )
 
 story.append(PageBreak())
@@ -218,27 +212,26 @@ body("Representa uma despesa individual vinculada a uma viagem e a uma categoria
 make_table(
     ["Campo (Despesa)", "Tipo", "Descrição"],
     [
-        ["idDespesa", "int?", "Identificador único (gerado pelo backend)"],
+        ["idDespesa", "String?", "Identificador único (uuid gerado pelo Supabase)"],
         ["descricao", "String", "Descrição da despesa"],
         ["valor", "double", "Valor gasto"],
         ["data / hora", "String / String?", "Data e hora do gasto"],
         ["formaPagamento", "String", "Ex.: Cartão de crédito, Débito, Dinheiro, Pix, Outros"],
-        ["idViagem / idCategoria", "int", "Referências à viagem e categoria associadas"],
-        ["categoria / icone", "String? / String?", "Nome e ícone da categoria (retornados pelo backend)"],
+        ["idViagem / idCategoria", "String", "Referências (uuid) à viagem e categoria associadas"],
+        ["categoria / icone", "String? / String?", "Nome e ícone da categoria (via join com categorias)"],
     ],
     [4.5 * cm, 3 * cm, 8 * cm],
 )
-body("A classe <b>Categoria</b> representa uma categoria de despesa (id, nome, ícone), obtida via API.")
+body("A classe <b>Categoria</b> representa uma categoria de despesa (id, nome, ícone), lida do banco.")
 
 h2("2.2 Usuario — usuario.dart")
 make_table(
     ["Campo", "Tipo", "Descrição"],
     [
-        ["idUsuario", "int", "Identificador do usuário"],
+        ["idUsuario", "String", "Identificador do usuário (uuid do Supabase Auth)"],
         ["nome / email", "String", "Dados básicos de cadastro"],
-        ["foto", "String?", "Foto de perfil (base64)"],
+        ["fotoUrl", "String?", "URL pública da foto de perfil no Supabase Storage"],
         ["moedaPadrao", "String", "Moeda padrão do usuário (default: 'BRL')"],
-        ["token", "String?", "Token de sessão/autenticação"],
     ],
     [4.5 * cm, 3 * cm, 8 * cm],
 )
@@ -247,13 +240,13 @@ h2("2.3 Viagem — viagem.dart")
 make_table(
     ["Campo", "Tipo", "Descrição"],
     [
-        ["idViagem", "int?", "Identificador da viagem"],
+        ["idViagem", "String?", "Identificador da viagem (uuid)"],
         ["nome / destino", "String", "Nome e destino da viagem"],
-        ["foto", "String?", "Foto da viagem (base64)"],
+        ["fotoUrl", "String?", "URL pública da foto da viagem no Supabase Storage"],
         ["dataInicio / dataFim", "String", "Período da viagem (AAAA-MM-DD)"],
         ["orcamento", "double", "Orçamento definido para a viagem"],
-        ["totalGasto / percentualGasto", "double", "Valores agregados calculados pelo backend"],
-        ["idUsuario", "int?", "Dono da viagem"],
+        ["totalGasto / percentualGasto", "double", "Valores agregados, calculados pela view viagens_resumo no banco"],
+        ["idUsuario", "String?", "Dono da viagem"],
     ],
     [4.5 * cm, 3 * cm, 8 * cm],
 )
@@ -261,48 +254,54 @@ make_table(
 story.append(PageBreak())
 
 # =========================================================================
-# 3. SERVIÇOS (COMUNICAÇÃO COM O BACKEND)
+# 3. SERVIÇOS (SUPABASE)
 # =========================================================================
-h1("3. Serviços — Comunicação com o Backend (lib/services)")
+h1("3. Serviços — Integração com o Supabase (lib/services)")
 body(
-    "Todos os serviços usam o pacote <font face='Courier'>http</font> para se comunicar com uma API "
-    "REST externa (o código do backend não faz parte deste repositório Flutter). Não há banco de dados "
-    "local para viagens/despesas — o app depende do backend estar acessível a cada tela."
+    "Desde a versão 2 (seção 7), os serviços não fazem mais requisições HTTP a um servidor próprio: "
+    "eles usam o cliente <font face='Courier'>supabase_flutter</font> para falar direto com a "
+    "autenticação, o banco Postgres e o armazenamento de arquivos do projeto Supabase. A segurança — "
+    "cada usuário só acessa os próprios dados — é garantida por políticas de Row Level Security (RLS) "
+    "no banco, não por checagens manuais no app (ver <font face='Courier'>supabase/schema.sql</font>)."
 )
 
 h2("3.1 AuthService — autenticação e perfil")
 make_table(
-    ["Método", "Endpoint", "Função"],
+    ["Método", "Recurso do Supabase", "Função"],
     [
-        ["cadastrar(nome, email, senha)", "POST /cadastro", "Cria uma nova conta"],
-        ["login(email, senha)", "POST /login", "Autentica o usuário"],
-        ["logoff(idUsuario)", "POST /logoff", "Encerra a sessão no backend"],
-        ["recuperarSenha(email)", "POST /recuperar-senha", "Envia código de recuperação por e-mail"],
-        ["redefinirSenha(...)", "POST /redefinir-senha", "Redefine a senha usando o código recebido"],
-        ["getPerfil(idUsuario)", "GET /perfil/{id}", "Busca os dados do perfil"],
-        ["atualizarPerfil(...)", "PUT /atualizarperfil", "Atualiza nome, e-mail, moeda e/ou foto"],
-        ["alterarSenha(...)", "PUT /alterarsenha", "Troca a senha do usuário"],
+        ["cadastrar(nome, email, senha)", "auth.signUp", "Cria uma nova conta (dispara e-mail de confirmação)"],
+        ["login(email, senha)", "auth.signInWithPassword", "Autentica o usuário"],
+        ["logoff()", "auth.signOut", "Encerra a sessão (local e no Supabase)"],
+        ["recuperarSenha(email)", "auth.resetPasswordForEmail", "Envia código de recuperação por e-mail"],
+        ["redefinirSenha(...)", "auth.verifyOTP + auth.updateUser", "Valida o código e define a nova senha"],
+        ["getPerfil(idUsuario)", "tabela profiles", "Busca os dados do perfil"],
+        ["atualizarPerfil(...)", "tabela profiles + auth.updateUser", "Atualiza nome, e-mail, moeda e/ou foto"],
+        ["alterarSenha(...)", "auth.signInWithPassword + auth.updateUser", "Reautentica e troca a senha"],
+        ["uploadFotoPerfil(...)", "Storage (bucket fotos)", "Envia a foto de perfil e devolve a URL pública"],
     ],
-    [5 * cm, 3.7 * cm, 6.8 * cm],
+    [5 * cm, 4.7 * cm, 5.8 * cm],
 )
 
 h2("3.2 ViagemService, DespesaService e DashboardService")
 make_table(
-    ["Classe / Método", "Endpoint", "Função"],
+    ["Classe / Método", "Recurso do Supabase", "Função"],
     [
-        ["ViagemService.listar(idUsuario)", "GET /viagens/{id}", "Lista as viagens do usuário"],
-        ["ViagemService.cadastrar / atualizar / remover", "POST/PUT/DELETE", "CRUD de viagens"],
-        ["DespesaService.listar(idViagem)", "GET /despesas/{id}", "Lista despesas de uma viagem"],
-        ["DespesaService.listarCategorias()", "GET /categorias", "Lista categorias disponíveis"],
-        ["DespesaService.cadastrar / atualizar / remover", "POST/PUT/DELETE", "CRUD de despesas"],
-        ["DashboardService.getDashboard(idUsuario)", "GET /dashboard/{id}", "Dados agregados: viagem ativa, gastos de hoje, maior gasto, últimas despesas"],
+        ["ViagemService.listar(idUsuario)", "view viagens_resumo", "Lista as viagens do usuário (já com totais calculados)"],
+        ["ViagemService.cadastrar / atualizar / remover", "tabela viagens", "CRUD de viagens"],
+        ["DespesaService.listar(idViagem)", "tabela despesas (+ join categorias)", "Lista despesas de uma viagem"],
+        ["DespesaService.listarCategorias()", "tabela categorias", "Lista categorias disponíveis"],
+        ["DespesaService.cadastrar / atualizar / remover", "tabela despesas", "CRUD de despesas"],
+        ["DashboardService.getDashboard(idUsuario)", "consultas combinadas", "Monta viagem ativa, gastos de hoje, maior gasto e últimas despesas"],
+        ["StorageService.upload(...)", "Storage (bucket fotos)", "Upload genérico de fotos (usado por viagens e perfil)"],
     ],
-    [5.8 * cm, 3.7 * cm, 6 * cm],
+    [5.8 * cm, 4.7 * cm, 5 * cm],
 )
 body(
-    "<b>Observação técnica:</b> nenhum serviço verifica o <font face='Courier'>statusCode</font> da "
-    "resposta HTTP; o tratamento de erro é feito de forma genérica nas telas (mensagem fixa "
-    "\"Erro de conexão com o servidor\"). Esse ponto é candidato a melhoria na próxima fase."
+    "<b>Observação técnica:</b> a checagem de dono dos dados (usuário só vê as próprias viagens/despesas) "
+    "agora é feita pelo banco via RLS, não pelo código do app — isso reduz o risco de um bug no client "
+    "expor dados de outro usuário. Erros ainda são tratados de forma genérica nas telas (mensagem fixa "
+    "\"Erro de conexão com o servidor\"); mensagens mais específicas por tipo de erro continuam sendo um "
+    "ponto de melhoria."
 )
 
 story.append(PageBreak())
@@ -313,11 +312,11 @@ story.append(PageBreak())
 h1("4. Telas e Funcionalidades (lib/screens)")
 
 screens = [
-    ("SplashScreen", "Tela inicial. Exibe a logo por 2 segundos e verifica se há uma sessão salva "
-     "(SharedPreferences). Se houver, leva direto ao MainScreen; senão, à tela de Login."),
+    ("SplashScreen", "Tela inicial. Exibe a logo por 2 segundos e verifica se há uma sessão ativa no "
+     "Supabase Auth. Se houver, leva direto ao MainScreen; senão, à tela de Login."),
     ("LoginScreen", "Login com e-mail e senha, opção de mostrar/ocultar senha, links para "
-     "\"Esqueci minha senha\" e \"Cadastre-se\". Em caso de sucesso, salva a sessão localmente e "
-     "abre o MainScreen."),
+     "\"Esqueci minha senha\" e \"Cadastre-se\". Em caso de sucesso, o Supabase Auth já mantém a sessão "
+     "salva automaticamente e o app abre o MainScreen."),
     ("CadastroScreen", "Cadastro de novo usuário (nome, e-mail, senha, confirmação de senha) com "
      "aceite obrigatório dos Termos de Uso (texto exibido na própria tela)."),
     ("RecuperarSenhaScreen", "Fluxo de recuperação de senha em duas etapas: solicitar código por "
@@ -336,7 +335,7 @@ screens = [
      "Permite cadastrar, editar e excluir despesas por um formulário em painel deslizante, incluindo "
      "categoria, descrição, valor, data e forma de pagamento. Mostra o total das despesas filtradas."),
     ("PerfilScreen", "Exibe e permite editar os dados do usuário (foto, nome, e-mail), alterar a "
-     "senha e encerrar a sessão (logoff), limpando os dados salvos localmente."),
+     "senha e encerrar a sessão (logoff) via Supabase Auth."),
 ]
 
 for name, desc in screens:
@@ -373,19 +372,21 @@ body(
     "banca de apresentação:"
 )
 bullets([
-    "Endereço do backend fixo no código (IP de rede local); precisa de configuração por ambiente "
-    "(desenvolvimento/produção) e uso de HTTPS.",
-    "Tratamento de erros de rede é genérico (sem checagem de status HTTP nem mensagens específicas "
-    "por tipo de erro).",
+    "<b>Resolvido na v2:</b> o backend deixou de ser um servidor fixo em IP local — agora é o Supabase, "
+    "acessado via HTTPS, com autenticação e regras de acesso reais (RLS).",
+    "<b>Ainda não testado de verdade:</b> a migração para o Supabase foi feita sem conseguir compilar/rodar "
+    "o app neste ambiente (sem o SDK do Flutter disponível). É essencial rodar o app e testar login, "
+    "cadastro, upload de foto e o CRUD de viagens/despesas antes da apresentação.",
+    "Por padrão, o Supabase exige confirmação de e-mail para novas contas — vale revisar essa "
+    "configuração no painel do projeto (Authentication) para decidir se isso é desejável na demonstração.",
+    "Tratamento de erros de rede ainda é genérico (mensagem fixa), sem diferenciar tipos de erro.",
     "Algumas opções da interface ainda são placeholders sem função: botão \"Ver todas\" no Dashboard, "
     "filtro de despesas, e os itens \"Moeda padrão\", \"Configurações\", \"Sobre o app\" e \"Suporte\" "
     "na tela de Perfil.",
     "Termos de Uso exibidos no Cadastro são apenas um texto estático, sem uma tela própria de conteúdo "
     "legal.",
-    "Não há persistência local (offline) dos dados de viagens/despesas — o app depende do backend "
-    "estar sempre acessível.",
-    "Os modelos de dados (Despesa, Usuario, Viagem) não possuem método toJson(); o envio de dados ao "
-    "backend é remontado manualmente em cada tela.",
+    "Não há persistência local (offline) dos dados de viagens/despesas — o app depende de conexão com "
+    "o Supabase.",
     "Não há rotas nomeadas nem testes automatizados no projeto até o momento.",
 ])
 
