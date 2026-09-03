@@ -129,7 +129,8 @@ create policy "usuário gerencia despesas das próprias viagens"
 -- 5. VIEW com totais calculados (substitui os campos totalGasto /
 --    percentualGasto que antes vinham prontos do backend antigo)
 -- ---------------------------------------------------------------------
-create or replace view public.viagens_resumo as
+create or replace view public.viagens_resumo
+  with (security_invoker = true) as
 select
   v.*,
   coalesce(sum(d.valor), 0) as total_gasto,

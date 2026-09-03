@@ -1,7 +1,6 @@
 import 'dart:typed_data';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants.dart';
 import '../services/auth_service.dart';
@@ -17,31 +16,34 @@ class PerfilScreen extends StatefulWidget {
 class _PerfilScreenState extends State<PerfilScreen> {
   String _nome = '';
   String _email = '';
-  int? _idUsuario;
-  Uint8List? _fotoBytes;
-  String? _fotoBase64;
+  String? _fotoUrl;
+  late final String _idUsuario;
+  Uint8List? _fotoBytesLocal;
+  bool _carregandoFoto = false;
   final _service = AuthService();
 
   @override
   void initState() {
     super.initState();
+    _idUsuario = Supabase.instance.client.auth.currentUser!.id;
     _carregar();
   }
 
   Future<void> _carregar() async {
-    final prefs = await SharedPreferences.getInstance();
-    final fotoSalva = prefs.getString('foto');
-    setState(() {
-      _idUsuario = prefs.getInt('id_usuario');
-      _nome = prefs.getString('nome') ?? '';
-      _email = prefs.getString('email') ?? '';
-      if (fotoSalva != null && fotoSalva.isNotEmpty) {
-        try {
-          _fotoBytes = base64Decode(fotoSalva);
-          _fotoBase64 = fotoSalva;
-        } catch (_) {}
+    try {
+      final perfil = await _service.getPerfil(_idUsuario);
+      setState(() {
+        _nome = perfil.nome;
+        _email = perfil.email;
+        _fotoUrl = perfil.fotoUrl;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Erro ao carregar perfil'),
+            backgroundColor: Colors.red));
       }
-    });
+    }
   }
 
   Future<void> _selecionarFoto() async {
@@ -53,25 +55,30 @@ class _PerfilScreenState extends State<PerfilScreen> {
         maxHeight: 400,
         imageQuality: 70,
       );
-      if (pickedFile != null) {
-        final bytes = await pickedFile.readAsBytes();
-        final base64Str = base64Encode(bytes);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('foto', base64Str);
-        setState(() {
-          _fotoBytes = bytes;
-          _fotoBase64 = base64Str;
-        });
-        // Salva no backend também
-        await _service.atualizarPerfil(
-            _idUsuario!, _nome, _email, 'BRL', foto: base64Str);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Foto atualizada!'),
-              backgroundColor: Colors.green));
-        }
+      if (pickedFile == null) return;
+
+      final bytes = await pickedFile.readAsBytes();
+      setState(() {
+        _fotoBytesLocal = bytes;
+        _carregandoFoto = true;
+      });
+
+      final url = await _service.uploadFotoPerfil(_idUsuario, bytes);
+      await _service.atualizarPerfil(_idUsuario, _nome, _email, 'BRL',
+          fotoUrl: url);
+
+      setState(() {
+        _fotoUrl = url;
+        _fotoBytesLocal = null;
+        _carregandoFoto = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Foto atualizada!'),
+            backgroundColor: Colors.green));
       }
     } catch (_) {
+      setState(() => _carregandoFoto = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Erro ao selecionar foto'),
@@ -99,9 +106,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       ),
     );
     if (confirmado == true) {
-      await _service.logoff(_idUsuario!);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      await _service.logoff();
       if (mounted) {
         Navigator.pushAndRemoveUntil(
             context,
@@ -149,11 +154,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               await _service.atualizarPerfil(
-                  _idUsuario!, nomeCtrl.text, emailCtrl.text, 'BRL');
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setString('nome', nomeCtrl.text);
-              await prefs.setString('email', emailCtrl.text);
-              _carregar();
+                  _idUsuario, nomeCtrl.text, emailCtrl.text, 'BRL');
+              await _carregar();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                     content: Text('Perfil atualizado!'),
@@ -209,8 +211,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final resultado = await _service.alterarSenha(
-                  _idUsuario!, atualCtrl.text, novaCtrl.text);
+              final resultado =
+                  await _service.alterarSenha(atualCtrl.text, novaCtrl.text);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(resultado['mensagem'] ?? ''),
@@ -227,6 +229,14 @@ class _PerfilScreenState extends State<PerfilScreen> {
         ],
       ),
     );
+  }
+
+  ImageProvider? get _avatarImage {
+    if (_fotoBytesLocal != null) return MemoryImage(_fotoBytesLocal!);
+    if (_fotoUrl != null && _fotoUrl!.isNotEmpty) {
+      return NetworkImage(_fotoUrl!);
+    }
+    return null;
   }
 
   @override
@@ -253,15 +263,20 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     child: CircleAvatar(
                       radius: 55,
                       backgroundColor: kPrimaryColor.withValues(alpha: 0.2),
-                      backgroundImage: _fotoBytes != null
-                          ? MemoryImage(_fotoBytes!)
-                          : null,
-                      child: _fotoBytes == null
+                      backgroundImage: _avatarImage,
+                      child: _avatarImage == null
                           ? const Icon(Icons.person,
                               size: 55, color: kPrimaryColor)
                           : null,
                     ),
                   ),
+                  if (_carregandoFoto)
+                    const Positioned.fill(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                            color: kPrimaryColor),
+                      ),
+                    ),
                   Positioned(
                     bottom: 0,
                     right: 0,

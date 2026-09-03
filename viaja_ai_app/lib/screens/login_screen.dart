@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
 import '../services/auth_service.dart';
 import 'cadastro_screen.dart';
@@ -36,12 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailCtrl.text.trim(), _senhaCtrl.text.trim());
 
       if (resultado['code'] == 200) {
-        final usuario = resultado['usuario'];
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('id_usuario', usuario['id_usuario']);
-        await prefs.setString('nome', usuario['nome']);
-        await prefs.setString('email', usuario['email']);
-
+        // A sessão já fica salva automaticamente pelo Supabase Auth.
         if (mounted) {
           Navigator.pushReplacement(
               context, MaterialPageRoute(builder: (_) => const MainScreen()));

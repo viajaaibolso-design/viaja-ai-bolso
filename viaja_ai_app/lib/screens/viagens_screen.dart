@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants.dart';
 import '../models/viagem.dart';
 import '../services/viagem_service.dart';
@@ -16,7 +15,7 @@ class ViagensScreen extends StatefulWidget {
 class _ViagensScreenState extends State<ViagensScreen> {
   List<Viagem> _viagens = [];
   bool _loading = true;
-  int? _idUsuario;
+  late final String _idUsuario;
 
   @override
   void initState() {
@@ -26,10 +25,9 @@ class _ViagensScreenState extends State<ViagensScreen> {
 
   Future<void> _carregar() async {
     setState(() => _loading = true);
-    final prefs = await SharedPreferences.getInstance();
-    _idUsuario = prefs.getInt('id_usuario');
+    _idUsuario = Supabase.instance.client.auth.currentUser!.id;
     try {
-      final lista = await ViagemService().listar(_idUsuario!);
+      final lista = await ViagemService().listar(_idUsuario);
       setState(() {
         _viagens = lista;
         _loading = false;
@@ -69,16 +67,34 @@ class _ViagensScreenState extends State<ViagensScreen> {
       'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
 
   Widget _buildFotoViagem(Viagem v) {
-    if (v.foto != null && v.foto!.isNotEmpty) {
-      try {
-        return Image.memory(
-          base64Decode(v.foto!),
-          height: 140,
-          width: double.infinity,
-          fit: BoxFit.cover,
-        );
-      } catch (_) {}
+    if (v.fotoUrl != null && v.fotoUrl!.isNotEmpty) {
+      return Image.network(
+        v.fotoUrl!,
+        height: 140,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _placeholderFoto(),
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return SizedBox(
+            height: 140,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: kPrimaryColor,
+                value: progress.expectedTotalBytes != null
+                    ? progress.cumulativeBytesLoaded /
+                        progress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          );
+        },
+      );
     }
+    return _placeholderFoto();
+  }
+
+  Widget _placeholderFoto() {
     return Container(
       height: 140,
       decoration: BoxDecoration(

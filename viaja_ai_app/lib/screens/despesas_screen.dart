@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants.dart';
 import '../models/despesa.dart';
 import '../models/viagem.dart';
@@ -19,7 +19,7 @@ class _DespesasScreenState extends State<DespesasScreen> {
   Viagem? _viagemSelecionada;
   String _filtroCategoria = 'Todas';
   bool _loading = true;
-  int? _idUsuario;
+  late final String _idUsuario;
 
   @override
   void initState() {
@@ -29,10 +29,9 @@ class _DespesasScreenState extends State<DespesasScreen> {
 
   Future<void> _carregar() async {
     setState(() => _loading = true);
-    final prefs = await SharedPreferences.getInstance();
-    _idUsuario = prefs.getInt('id_usuario');
+    _idUsuario = Supabase.instance.client.auth.currentUser!.id;
     try {
-      final viagens = await ViagemService().listar(_idUsuario!);
+      final viagens = await ViagemService().listar(_idUsuario);
       final categorias = await DespesaService().listarCategorias();
       setState(() {
         _viagens = viagens;
@@ -269,7 +268,7 @@ class _DespesasScreenState extends State<DespesasScreen> {
                           'valor': double.tryParse(valorCtrl.text) ?? 0,
                           'data': dataStr,
                           'forma_pagamento': formaPagamento,
-                          'id_categoria': categoriaSelecionada!.idCategoria,
+                          'categoria_id': categoriaSelecionada!.idCategoria,
                         });
                       } else {
                         await DespesaService().cadastrar({
@@ -277,8 +276,8 @@ class _DespesasScreenState extends State<DespesasScreen> {
                           'valor': double.tryParse(valorCtrl.text) ?? 0,
                           'data': dataStr,
                           'forma_pagamento': formaPagamento,
-                          'id_viagem': _viagemSelecionada!.idViagem,
-                          'id_categoria': categoriaSelecionada!.idCategoria,
+                          'viagem_id': _viagemSelecionada!.idViagem,
+                          'categoria_id': categoriaSelecionada!.idCategoria,
                         });
                       }
                       _carregarDespesas();

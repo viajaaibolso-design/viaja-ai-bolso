@@ -1,12 +1,12 @@
 class Despesa {
-  final int? idDespesa;
+  final String? idDespesa;
   final String descricao;
   final double valor;
   final String data;
   final String? hora;
   final String formaPagamento;
-  final int idViagem;
-  final int idCategoria;
+  final String idViagem;
+  final String idCategoria;
   final String? categoria;
   final String? icone;
 
@@ -24,23 +24,26 @@ class Despesa {
   });
 
   factory Despesa.fromJson(Map<String, dynamic> json) {
+    // Quando a consulta usa o embed "categorias(nome, icone)", o Supabase
+    // devolve um objeto aninhado em json['categorias'].
+    final categoriaJson = json['categorias'] as Map<String, dynamic>?;
     return Despesa(
-      idDespesa: json['id_despesa'],
+      idDespesa: json['id'] as String?,
       descricao: json['descricao'] ?? '',
-      valor: (json['valor'] ?? 0).toDouble(),
+      valor: (json['valor'] as num? ?? 0).toDouble(),
       data: json['data'] ?? '',
       hora: json['hora'],
       formaPagamento: json['forma_pagamento'] ?? 'Cartão de crédito',
-      idViagem: json['id_viagem_fk'] ?? 0,
-      idCategoria: json['id_categoria_fk'] ?? 0,
-      categoria: json['categoria'],
-      icone: json['icone'],
+      idViagem: json['viagem_id'] ?? '',
+      idCategoria: json['categoria_id'] ?? '',
+      categoria: json['categoria'] ?? categoriaJson?['nome'],
+      icone: json['icone'] ?? categoriaJson?['icone'],
     );
   }
 }
 
 class Categoria {
-  final int idCategoria;
+  final String idCategoria;
   final String nome;
   final String icone;
 
@@ -52,7 +55,7 @@ class Categoria {
 
   factory Categoria.fromJson(Map<String, dynamic> json) {
     return Categoria(
-      idCategoria: json['id_categoria'],
+      idCategoria: json['id'] as String? ?? '',
       nome: json['nome'] ?? '',
       icone: json['icone'] ?? '',
     );

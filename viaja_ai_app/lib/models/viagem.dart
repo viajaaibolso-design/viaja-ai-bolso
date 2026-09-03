@@ -1,20 +1,20 @@
 class Viagem {
-  final int? idViagem;
+  final String? idViagem;
   final String nome;
   final String destino;
-  final String? foto;
+  final String? fotoUrl;
   final String dataInicio;
   final String dataFim;
   final double orcamento;
   final double totalGasto;
   final double percentualGasto;
-  final int? idUsuario;
+  final String? idUsuario;
 
   Viagem({
     this.idViagem,
     required this.nome,
     required this.destino,
-    this.foto,
+    this.fotoUrl,
     required this.dataInicio,
     required this.dataFim,
     this.orcamento = 0,
@@ -25,15 +25,16 @@ class Viagem {
 
   factory Viagem.fromJson(Map<String, dynamic> json) {
     return Viagem(
-      idViagem: json['id_viagem'],
+      idViagem: json['id'] as String?,
       nome: json['nome'] ?? '',
       destino: json['destino'] ?? '',
-      foto: json['foto'],
+      fotoUrl: json['foto_url'],
       dataInicio: json['data_inicio'] ?? '',
       dataFim: json['data_fim'] ?? '',
-      orcamento: (json['orcamento'] ?? 0).toDouble(),
-      totalGasto: (json['total_gasto'] ?? 0).toDouble(),
-      percentualGasto: (json['percentual_gasto'] ?? 0).toDouble(),
+      orcamento: (json['orcamento'] as num? ?? 0).toDouble(),
+      totalGasto: (json['total_gasto'] as num? ?? 0).toDouble(),
+      percentualGasto: (json['percentual_gasto'] as num? ?? 0).toDouble(),
+      idUsuario: json['user_id'] as String?,
     );
   }
 }

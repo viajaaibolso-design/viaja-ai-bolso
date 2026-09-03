@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants.dart';
 import 'login_screen.dart';
 import 'main_screen.dart';
@@ -20,11 +20,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _verificarLogin() async {
     await Future.delayed(const Duration(seconds: 2));
-    final prefs = await SharedPreferences.getInstance();
-    final idUsuario = prefs.getInt('id_usuario');
+    // O Supabase Auth já mantém a sessão salva localmente entre aberturas
+    // do app — não precisamos mais checar nada no SharedPreferences.
+    final sessao = Supabase.instance.client.auth.currentSession;
 
     if (mounted) {
-      if (idUsuario != null) {
+      if (sessao != null) {
         Navigator.pushReplacement(
             context, MaterialPageRoute(builder: (_) => const MainScreen()));
       } else {

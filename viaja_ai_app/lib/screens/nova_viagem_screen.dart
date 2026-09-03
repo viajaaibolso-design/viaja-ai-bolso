@@ -1,11 +1,11 @@
 import 'dart:typed_data';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants.dart';
 import '../models/viagem.dart';
 import '../services/viagem_service.dart';
+import '../services/storage_service.dart';
 
 class NovaViagemScreen extends StatefulWidget {
   final Viagem? viagem;
@@ -22,8 +22,14 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
   DateTime? _dataInicio;
   DateTime? _dataFim;
   bool _loading = false;
-  String? _imagemBase64;
+
+  // Foto: _fotoUrlExistente é a que já está salva (modo edição);
+  // _imagemBytes é uma foto NOVA escolhida nesta sessão, ainda não enviada.
+  // _fotoAlterada controla se, ao salvar, precisamos subir/limpar a foto.
+  String? _fotoUrlExistente;
   Uint8List? _imagemBytes;
+  bool _fotoAlterada = false;
+
   bool get _editando => widget.viagem != null;
 
   @override
@@ -35,13 +41,7 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
       _orcamentoCtrl.text = widget.viagem!.orcamento.toStringAsFixed(2);
       _dataInicio = DateTime.tryParse(widget.viagem!.dataInicio);
       _dataFim = DateTime.tryParse(widget.viagem!.dataFim);
-      // Carrega foto existente
-      if (widget.viagem!.foto != null && widget.viagem!.foto!.isNotEmpty) {
-        try {
-          _imagemBytes = base64Decode(widget.viagem!.foto!);
-          _imagemBase64 = widget.viagem!.foto;
-        } catch (_) {}
-      }
+      _fotoUrlExistente = widget.viagem!.fotoUrl;
     }
   }
 
@@ -62,10 +62,9 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
       );
       if (pickedFile != null) {
         final bytes = await pickedFile.readAsBytes();
-        final base64Str = base64Encode(bytes);
         setState(() {
           _imagemBytes = bytes;
-          _imagemBase64 = base64Str;
+          _fotoAlterada = true;
         });
       }
     } catch (e) {
@@ -114,16 +113,27 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
       return;
     }
     setState(() => _loading = true);
-    final prefs = await SharedPreferences.getInstance();
-    final idUsuario = prefs.getInt('id_usuario');
+    final idUsuario = Supabase.instance.client.auth.currentUser!.id;
 
     try {
+      // Só mexe no Storage se o usuário trocou ou removeu a foto nesta tela.
+      String? fotoUrl = _fotoUrlExistente;
+      if (_fotoAlterada) {
+        if (_imagemBytes != null) {
+          final caminho =
+              '$idUsuario/viagens/${DateTime.now().millisecondsSinceEpoch}.jpg';
+          fotoUrl = await StorageService().upload(caminho, _imagemBytes!);
+        } else {
+          fotoUrl = null;
+        }
+      }
+
       if (_editando) {
         await ViagemService().atualizar({
           'id_viagem': widget.viagem!.idViagem,
           'nome': _nomeCtrl.text.trim(),
           'destino': _destinoCtrl.text.trim(),
-          'foto': _imagemBase64,
+          'foto_url': fotoUrl,
           'data_inicio': _toIso(_dataInicio!),
           'data_fim': _toIso(_dataFim!),
           'orcamento': double.tryParse(_orcamentoCtrl.text) ?? 0,
@@ -132,11 +142,11 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
         await ViagemService().cadastrar({
           'nome': _nomeCtrl.text.trim(),
           'destino': _destinoCtrl.text.trim(),
-          'foto': _imagemBase64,
+          'foto_url': fotoUrl,
           'data_inicio': _toIso(_dataInicio!),
           'data_fim': _toIso(_dataFim!),
           'orcamento': double.tryParse(_orcamentoCtrl.text) ?? 0,
-          'id_usuario': idUsuario,
+          'user_id': idUsuario,
         });
       }
       if (mounted) Navigator.pop(context);
@@ -158,6 +168,24 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
         ),
       );
     }
+    if (!_fotoAlterada &&
+        _fotoUrlExistente != null &&
+        _fotoUrlExistente!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.network(
+          _fotoUrlExistente!,
+          width: 140,
+          height: 140,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _fotoVazia(),
+        ),
+      );
+    }
+    return _fotoVazia();
+  }
+
+  Widget _fotoVazia() {
     return Container(
       width: 140,
       height: 140,
@@ -180,6 +208,10 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
       ),
     );
   }
+
+  bool get _temFotoParaMostrar =>
+      _imagemBytes != null ||
+      (!_fotoAlterada && _fotoUrlExistente != null && _fotoUrlExistente!.isNotEmpty);
 
   @override
   Widget build(BuildContext context) {
@@ -210,7 +242,7 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
                 child: Stack(
                   children: [
                     _buildFoto(),
-                    if (_imagemBytes != null)
+                    if (_temFotoParaMostrar)
                       Positioned(
                         bottom: 6,
                         right: 6,
@@ -228,14 +260,14 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
                 ),
               ),
             ),
-            if (_imagemBytes != null)
+            if (_temFotoParaMostrar)
               Center(
                 child: TextButton.icon(
-                  onPressed: () =>
-                      setState(() {
-                        _imagemBytes = null;
-                        _imagemBase64 = null;
-                      }),
+                  onPressed: () => setState(() {
+                    _imagemBytes = null;
+                    _fotoUrlExistente = null;
+                    _fotoAlterada = true;
+                  }),
                   icon: const Icon(Icons.delete, color: Colors.red, size: 16),
                   label: const Text('Remover foto',
                       style: TextStyle(color: Colors.red, fontSize: 13)),

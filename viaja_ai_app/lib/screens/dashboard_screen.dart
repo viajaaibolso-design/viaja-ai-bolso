@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants.dart';
+import '../services/auth_service.dart';
 import '../services/viagem_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -14,7 +15,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _dashboard;
   String _nomeUsuario = '';
   bool _loading = true;
-  int? _idUsuario;
+  late final String _idUsuario;
 
   @override
   void initState() {
@@ -24,13 +25,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _carregar() async {
     setState(() => _loading = true);
-    final prefs = await SharedPreferences.getInstance();
-    _idUsuario = prefs.getInt('id_usuario');
-    _nomeUsuario = prefs.getString('nome') ?? '';
+    _idUsuario = Supabase.instance.client.auth.currentUser!.id;
 
     try {
-      final data = await DashboardService().getDashboard(_idUsuario!);
+      final perfil = await AuthService().getPerfil(_idUsuario);
+      final data = await DashboardService().getDashboard(_idUsuario);
       setState(() {
+        _nomeUsuario = perfil.nome;
         _dashboard = data;
         _loading = false;
       });
@@ -85,7 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 20),
 
                       // Card viagem ativa
-                      if (viagem != null && viagem['id_viagem'] != null)
+                      if (viagem != null && viagem['id'] != null)
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(20),

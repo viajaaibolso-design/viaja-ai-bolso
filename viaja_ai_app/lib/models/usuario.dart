@@ -1,28 +1,25 @@
 class Usuario {
-  final int idUsuario;
+  final String idUsuario;
   final String nome;
   final String email;
-  final String? foto;
+  final String? fotoUrl;
   final String moedaPadrao;
-  final String? token;
 
   Usuario({
     required this.idUsuario,
     required this.nome,
     required this.email,
-    this.foto,
+    this.fotoUrl,
     this.moedaPadrao = 'BRL',
-    this.token,
   });
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
-      idUsuario: json['id_usuario'],
+      idUsuario: json['id'] as String? ?? '',
       nome: json['nome'] ?? '',
       email: json['email'] ?? '',
-      foto: json['foto'],
+      fotoUrl: json['foto_url'],
       moedaPadrao: json['moeda_padrao'] ?? 'BRL',
-      token: json['token'],
     );
   }
 }

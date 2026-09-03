@@ -1,85 +1,175 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../constants.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/viagem.dart';
 import '../models/despesa.dart';
 
+/// CRUD de viagens direto no Postgres do Supabase. A segurança (cada
+/// usuário só vê/edita as próprias viagens) é garantida pelas políticas
+/// de RLS definidas em supabase/schema.sql — não precisa ser reforçada
+/// aqui no client.
 class ViagemService {
-  Future<List<Viagem>> listar(int idUsuario) async {
-    final response = await http.get(Uri.parse('$baseUrl/viagens/$idUsuario'));
-    final List data = jsonDecode(response.body);
-    return data.map((e) => Viagem.fromJson(e)).toList();
+  final _client = Supabase.instance.client;
+
+  Future<List<Viagem>> listar(String idUsuario) async {
+    final data = await _client
+        .from('viagens_resumo')
+        .select()
+        .eq('user_id', idUsuario)
+        .order('data_inicio', ascending: false);
+    return (data as List)
+        .map((e) => Viagem.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Map<String, dynamic>> cadastrar(Map<String, dynamic> dados) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/cadastrarviagem'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(dados),
-    );
-    return jsonDecode(response.body);
+    try {
+      await _client.from('viagens').insert(dados);
+      return {'code': 200};
+    } catch (_) {
+      return {'code': 500, 'mensagem': 'Erro ao salvar viagem'};
+    }
   }
 
   Future<Map<String, dynamic>> atualizar(Map<String, dynamic> dados) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/atualizarviagem'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(dados),
-    );
-    return jsonDecode(response.body);
+    try {
+      final payload = Map<String, dynamic>.from(dados);
+      final id = payload.remove('id_viagem');
+      await _client.from('viagens').update(payload).eq('id', id);
+      return {'code': 200};
+    } catch (_) {
+      return {'code': 500, 'mensagem': 'Erro ao atualizar viagem'};
+    }
   }
 
-  Future<void> remover(int idViagem) async {
-    final request = http.Request('DELETE', Uri.parse('$baseUrl/removerviagem'));
-    request.headers['Content-Type'] = 'application/json';
-    request.body = jsonEncode({'id_viagem': idViagem});
-    await request.send();
+  Future<void> remover(String idViagem) async {
+    await _client.from('viagens').delete().eq('id', idViagem);
   }
 }
 
 class DespesaService {
-  Future<List<Despesa>> listar(int idViagem) async {
-    final response = await http.get(Uri.parse('$baseUrl/despesas/$idViagem'));
-    final List data = jsonDecode(response.body);
-    return data.map((e) => Despesa.fromJson(e)).toList();
+  final _client = Supabase.instance.client;
+
+  Future<List<Despesa>> listar(String idViagem) async {
+    final data = await _client
+        .from('despesas')
+        .select('*, categorias(nome, icone)')
+        .eq('viagem_id', idViagem)
+        .order('data', ascending: false);
+    return (data as List)
+        .map((e) => Despesa.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Categoria>> listarCategorias() async {
-    final response = await http.get(Uri.parse('$baseUrl/categorias'));
-    final List data = jsonDecode(response.body);
-    return data.map((e) => Categoria.fromJson(e)).toList();
+    final data = await _client.from('categorias').select().order('nome');
+    return (data as List)
+        .map((e) => Categoria.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Map<String, dynamic>> cadastrar(Map<String, dynamic> dados) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/cadastrardespesa'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(dados),
-    );
-    return jsonDecode(response.body);
+    try {
+      await _client.from('despesas').insert(dados);
+      return {'code': 200};
+    } catch (_) {
+      return {'code': 500, 'mensagem': 'Erro ao salvar despesa'};
+    }
   }
 
   Future<Map<String, dynamic>> atualizar(Map<String, dynamic> dados) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/atualizardespesa'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(dados),
-    );
-    return jsonDecode(response.body);
+    try {
+      final payload = Map<String, dynamic>.from(dados);
+      final id = payload.remove('id_despesa');
+      await _client.from('despesas').update(payload).eq('id', id);
+      return {'code': 200};
+    } catch (_) {
+      return {'code': 500, 'mensagem': 'Erro ao atualizar despesa'};
+    }
   }
 
-  Future<void> remover(int idDespesa) async {
-    final request = http.Request('DELETE', Uri.parse('$baseUrl/removerdespesa'));
-    request.headers['Content-Type'] = 'application/json';
-    request.body = jsonEncode({'id_despesa': idDespesa});
-    await request.send();
+  Future<void> remover(String idDespesa) async {
+    await _client.from('despesas').delete().eq('id', idDespesa);
   }
 }
 
 class DashboardService {
-  Future<Map<String, dynamic>> getDashboard(int idUsuario) async {
-    final response =
-        await http.get(Uri.parse('$baseUrl/dashboard/$idUsuario'));
-    return jsonDecode(response.body);
+  final _client = Supabase.instance.client;
+
+  String _hojeIso() {
+    final hoje = DateTime.now();
+    return '${hoje.year.toString().padLeft(4, '0')}-'
+        '${hoje.month.toString().padLeft(2, '0')}-'
+        '${hoje.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Monta, a partir de algumas consultas simples, o mesmo formato de
+  /// resposta que o backend antigo devolvia em GET /dashboard/:id — assim
+  /// a DashboardScreen não precisa mudar quase nada.
+  Future<Map<String, dynamic>> getDashboard(String idUsuario) async {
+    final hojeStr = _hojeIso();
+
+    final viagens = await _client
+        .from('viagens_resumo')
+        .select()
+        .eq('user_id', idUsuario)
+        .order('data_inicio', ascending: false);
+
+    Map<String, dynamic>? viagemAtiva;
+    for (final v in viagens) {
+      final inicio = v['data_inicio'] as String? ?? '';
+      final fim = v['data_fim'] as String? ?? '';
+      if (inicio.compareTo(hojeStr) <= 0 && fim.compareTo(hojeStr) >= 0) {
+        viagemAtiva = v as Map<String, dynamic>;
+        break;
+      }
+    }
+    viagemAtiva ??= viagens.isNotEmpty ? viagens.first as Map<String, dynamic> : null;
+
+    // RLS já restringe as despesas às viagens do usuário logado, então
+    // não é preciso filtrar por usuário aqui de novo.
+    final despesasHoje = await _client
+        .from('despesas')
+        .select('valor')
+        .eq('data', hojeStr);
+    double totalHoje = 0;
+    for (final d in despesasHoje) {
+      totalHoje += (d['valor'] as num).toDouble();
+    }
+
+    final maiores = await _client
+        .from('despesas')
+        .select('valor, categorias(nome)')
+        .order('valor', ascending: false)
+        .limit(1);
+    Map<String, dynamic>? maiorGasto;
+    if (maiores.isNotEmpty) {
+      final m = maiores.first as Map<String, dynamic>;
+      final cat = m['categorias'] as Map<String, dynamic>?;
+      maiorGasto = {'valor': m['valor'], 'categoria': cat?['nome']};
+    }
+
+    final ultimas = await _client
+        .from('despesas')
+        .select('descricao, valor, data, hora, categorias(nome, icone)')
+        .order('created_at', ascending: false)
+        .limit(5);
+    final ultimasFormatadas = (ultimas as List).map((e) {
+      final d = e as Map<String, dynamic>;
+      final cat = d['categorias'] as Map<String, dynamic>?;
+      return {
+        'descricao': d['descricao'],
+        'valor': d['valor'],
+        'data': d['data'],
+        'hora': d['hora'],
+        'categoria': cat?['nome'],
+        'icone': cat?['icone'],
+      };
+    }).toList();
+
+    return {
+      'viagem_ativa': viagemAtiva,
+      'gastos_hoje': {'total': totalHoje, 'quantidade': despesasHoje.length},
+      'maior_gasto': maiorGasto,
+      'ultimas_despesas': ultimasFormatadas,
+    };
   }
 }
