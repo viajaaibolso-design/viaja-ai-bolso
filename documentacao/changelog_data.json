@@ -36,7 +36,7 @@
       "Publicação automática do resultado do build (pasta build/web) no GitHub Pages via actions/deploy-pages",
       "Necessário habilitar manualmente 'GitHub Actions' como origem em Settings > Pages do repositório (passo único, feito pela interface do GitHub)",
       "Link de acesso ao app: https://viajaaibolso-design.github.io/viaja-ai-bolso/",
-      "Pendente confirmação do primeiro deploy bem-sucedido (depende da execução do workflow no GitHub, fora deste ambiente)"
+      "Primeiro deploy confirmado com sucesso (build e publicação concluídos no GitHub Actions) — link já está no ar"
     ]
   }
 ]

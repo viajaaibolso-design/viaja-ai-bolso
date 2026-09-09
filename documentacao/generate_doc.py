@@ -387,7 +387,7 @@ bullets([
     "acessado via HTTPS, com autenticação e regras de acesso reais (RLS).",
     "<b>Resolvido na v3:</b> o app passou a ter um link direto e público, gerado automaticamente a cada "
     "atualização do código (GitHub Actions + GitHub Pages) — não é mais necessário instalar nada para "
-    "demonstrá-lo.",
+    "demonstrá-lo. Primeiro deploy já confirmado funcionando.",
     "<b>Parcialmente testado:</b> o app já foi executado de verdade pela primeira vez fora deste ambiente — "
     "cadastro de usuário funcionou e o e-mail de confirmação do Supabase chegou normalmente. Ainda faltam "
     "testar login, upload de foto e o CRUD completo de viagens/despesas antes da apresentação.",
