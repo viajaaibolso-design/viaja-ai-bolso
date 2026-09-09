@@ -200,6 +200,17 @@ body(
     "diretamente no banco (ver <font face='Courier'>supabase/schema.sql</font>)."
 )
 
+h2("1.3 Acesso direto ao app (versão web)")
+body(
+    "<b>Atualização (v3):</b> a cada atualização enviada ao repositório, o GitHub Actions gera "
+    "automaticamente a versão web do app e publica no GitHub Pages, gerando um link direto para "
+    "acesso pelo navegador, sem necessidade de instalar nada — útil para demonstração na banca "
+    "(ver seção 7, versão 3):"
+)
+bullets([
+    "<font face='Courier'>https://viajaaibolso-design.github.io/viaja-ai-bolso/</font>",
+])
+
 story.append(PageBreak())
 
 # =========================================================================
@@ -374,9 +385,12 @@ body(
 bullets([
     "<b>Resolvido na v2:</b> o backend deixou de ser um servidor fixo em IP local — agora é o Supabase, "
     "acessado via HTTPS, com autenticação e regras de acesso reais (RLS).",
-    "<b>Ainda não testado de verdade:</b> a migração para o Supabase foi feita sem conseguir compilar/rodar "
-    "o app neste ambiente (sem o SDK do Flutter disponível). É essencial rodar o app e testar login, "
-    "cadastro, upload de foto e o CRUD de viagens/despesas antes da apresentação.",
+    "<b>Resolvido na v3:</b> o app passou a ter um link direto e público, gerado automaticamente a cada "
+    "atualização do código (GitHub Actions + GitHub Pages) — não é mais necessário instalar nada para "
+    "demonstrá-lo.",
+    "<b>Parcialmente testado:</b> o app já foi executado de verdade pela primeira vez fora deste ambiente — "
+    "cadastro de usuário funcionou e o e-mail de confirmação do Supabase chegou normalmente. Ainda faltam "
+    "testar login, upload de foto e o CRUD completo de viagens/despesas antes da apresentação.",
     "Por padrão, o Supabase exige confirmação de e-mail para novas contas — vale revisar essa "
     "configuração no painel do projeto (Authentication) para decidir se isso é desejável na demonstração.",
     "Tratamento de erros de rede ainda é genérico (mensagem fixa), sem diferenciar tipos de erro.",

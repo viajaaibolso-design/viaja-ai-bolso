@@ -24,5 +24,19 @@
       "Configurado repositório Git local no projeto (commits com histórico de mudanças, visível pelo VSCode)",
       "Ainda não testado em um app rodando de verdade (não foi possível compilar o Flutter neste ambiente) — recomenda-se rodar o app e testar cadastro/login/CRUD antes da apresentação"
     ]
+  },
+  {
+    "versao": "3",
+    "data": "09/09/2026",
+    "titulo": "Publicação da versão web (link direto de acesso)",
+    "resumo": "Foi criado um fluxo automático (GitHub Actions) que gera a versão web do app a cada atualização enviada ao repositório e publica o resultado no GitHub Pages. Com isso, o projeto passa a ter um link direto, acessível por qualquer navegador, sem precisar instalar nada — ideal para demonstrar o app durante a apresentação do TCC.",
+    "mudancas": [
+      "Criado o workflow .github/workflows/deploy.yml, que instala o Flutter, roda 'flutter pub get' e 'flutter build web' automaticamente a cada push na branch main",
+      "Build da web configurado com --base-href /viaja-ai-bolso/ para funcionar corretamente no endereço do GitHub Pages",
+      "Publicação automática do resultado do build (pasta build/web) no GitHub Pages via actions/deploy-pages",
+      "Necessário habilitar manualmente 'GitHub Actions' como origem em Settings > Pages do repositório (passo único, feito pela interface do GitHub)",
+      "Link de acesso ao app: https://viajaaibolso-design.github.io/viaja-ai-bolso/",
+      "Pendente confirmação do primeiro deploy bem-sucedido (depende da execução do workflow no GitHub, fora deste ambiente)"
+    ]
   }
 ]
