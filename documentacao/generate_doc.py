@@ -26,12 +26,13 @@ OUTPUT_PATH = os.path.join(HERE, "documentacao_projeto.pdf")
 CHANGELOG_PATH = os.path.join(HERE, "changelog_data.json")
 
 # Paleta baseada em lib/constants.dart do próprio app
-PRIMARY = colors.HexColor("#007B6E")
-PRIMARY_LIGHT = colors.HexColor("#00A896")
-TEXT_DARK = colors.HexColor("#1A1A2E")
-TEXT_GREY = colors.HexColor("#6B6B6B")
-BG_LIGHT = colors.HexColor("#F5F5F5")
-WARN = colors.HexColor("#B45309")
+# (atualizada na v4 para a paleta "Mapa & Bússola" do protótipo de telas)
+PRIMARY = colors.HexColor("#2B4C6F")
+PRIMARY_LIGHT = colors.HexColor("#5C8374")
+TEXT_DARK = colors.HexColor("#2A2E35")
+TEXT_GREY = colors.HexColor("#6B7178")
+BG_LIGHT = colors.HexColor("#F6F2EA")
+WARN = colors.HexColor("#B96550")
 
 styles = getSampleStyleSheet()
 
@@ -172,8 +173,9 @@ make_table(
     ["Pacote", "Finalidade"],
     [
         ["supabase_flutter", "Cliente oficial do Supabase: autenticação, banco de dados (Postgres) e armazenamento de arquivos"],
-        ["image_picker / image_picker_for_web", "Seleção de fotos (foto de perfil e foto da viagem), enviadas ao Supabase Storage"],
+        ["image_picker / image_picker_for_web", "Seleção de fotos (perfil, viagem e comprovante de despesa), enviadas ao Supabase Storage"],
         ["intl", "Suporte a internacionalização/formatação (incluído, uso pontual)"],
+        ["http (v4)", "Consulta à API pública de câmbio (open.er-api.com) usada na conversão de moeda da tela inicial"],
     ],
     [4.5 * cm, 11 * cm],
 )
@@ -189,7 +191,10 @@ bullets([
     "<b>models/</b> — classes de dados puras (Despesa, Categoria, Usuario, Viagem), cada uma com "
     "método <font face='Courier'>fromJson</font> para converter a resposta do banco.",
     "<b>services/</b> — camada de acesso ao Supabase (AuthService, ViagemService, DespesaService, "
-    "DashboardService, StorageService), usando o cliente <font face='Courier'>supabase_flutter</font>.",
+    "DashboardService, StorageService) e à API de câmbio (CurrencyService, v4), usando "
+    "<font face='Courier'>supabase_flutter</font> e <font face='Courier'>http</font>.",
+    "<b>utils/</b> (v4) — funções auxiliares puras, sem estado: lista de moedas e formatação de valores "
+    "(moedas.dart) e geração do CSV de exportação de despesas (exportacao.dart).",
     "<b>screens/</b> — telas do app, que chamam os services diretamente (não há camada intermediária "
     "de controller/repository).",
 ])
@@ -230,6 +235,7 @@ make_table(
         ["formaPagamento", "String", "Ex.: Cartão de crédito, Débito, Dinheiro, Pix, Outros"],
         ["idViagem / idCategoria", "String", "Referências (uuid) à viagem e categoria associadas"],
         ["categoria / icone", "String? / String?", "Nome e ícone da categoria (via join com categorias)"],
+        ["fotoUrl (v4)", "String?", "URL do comprovante anexado (Supabase Storage), RF22"],
     ],
     [4.5 * cm, 3 * cm, 8 * cm],
 )
@@ -242,7 +248,8 @@ make_table(
         ["idUsuario", "String", "Identificador do usuário (uuid do Supabase Auth)"],
         ["nome / email", "String", "Dados básicos de cadastro"],
         ["fotoUrl", "String?", "URL pública da foto de perfil no Supabase Storage"],
-        ["moedaPadrao", "String", "Moeda padrão do usuário (default: 'BRL')"],
+        ["moedaPadrao", "String", "Moeda padrão do usuário (default: 'BRL') — RF29, também usada na conversão da home (RF46)"],
+        ["viagemAtivaId (v4)", "String?", "Viagem escolhida manualmente como ativa no dashboard (RF14); null = automático"],
     ],
     [4.5 * cm, 3 * cm, 8 * cm],
 )
@@ -258,6 +265,7 @@ make_table(
         ["orcamento", "double", "Orçamento definido para a viagem"],
         ["totalGasto / percentualGasto", "double", "Valores agregados, calculados pela view viagens_resumo no banco"],
         ["idUsuario", "String?", "Dono da viagem"],
+        ["moedaLocal (v4)", "String", "Moeda do destino (default: 'BRL') — RF45, definida ao cadastrar a viagem"],
     ],
     [4.5 * cm, 3 * cm, 8 * cm],
 )
@@ -299,11 +307,12 @@ make_table(
     [
         ["ViagemService.listar(idUsuario)", "view viagens_resumo", "Lista as viagens do usuário (já com totais calculados)"],
         ["ViagemService.cadastrar / atualizar / remover", "tabela viagens", "CRUD de viagens"],
+        ["ViagemService.definirViagemAtiva(...) (v4)", "tabela profiles", "RF14 — grava a viagem escolhida como ativa"],
         ["DespesaService.listar(idViagem)", "tabela despesas (+ join categorias)", "Lista despesas de uma viagem"],
         ["DespesaService.listarCategorias()", "tabela categorias", "Lista categorias disponíveis"],
-        ["DespesaService.cadastrar / atualizar / remover", "tabela despesas", "CRUD de despesas"],
-        ["DashboardService.getDashboard(idUsuario)", "consultas combinadas", "Monta viagem ativa, gastos de hoje, maior gasto e últimas despesas"],
-        ["StorageService.upload(...)", "Storage (bucket fotos)", "Upload genérico de fotos (usado por viagens e perfil)"],
+        ["DespesaService.cadastrar / atualizar / remover", "tabela despesas", "CRUD de despesas (agora inclui foto_url)"],
+        ["DashboardService.getDashboard(idUsuario)", "consultas combinadas", "Monta viagem ativa (manual ou automática, v4), gastos de hoje, maior gasto e últimas despesas"],
+        ["StorageService.upload(...)", "Storage (bucket fotos)", "Upload genérico (fotos de perfil/viagem, comprovantes e exportações CSV)"],
     ],
     [5.8 * cm, 4.7 * cm, 5 * cm],
 )
@@ -313,6 +322,16 @@ body(
     "expor dados de outro usuário. Erros ainda são tratados de forma genérica nas telas (mensagem fixa "
     "\"Erro de conexão com o servidor\"); mensagens mais específicas por tipo de erro continuam sendo um "
     "ponto de melhoria."
+)
+
+h2("3.3 CurrencyService (v4) — conversão de câmbio")
+body(
+    "Novo serviço que consulta a API pública e gratuita <font face='Courier'>open.er-api.com</font> "
+    "(sem necessidade de chave) para converter o total gasto da viagem (na moeda local) para a moeda "
+    "padrão do usuário, usada na tela inicial (RF45/RF46). As cotações ficam em cache na memória do "
+    "app por 6 horas, guardando também o horário da última consulta para exibir ao usuário (RNF23). Se "
+    "a API estiver indisponível, a tela inicial mostra \"Conversão indisponível no momento\" em vez de "
+    "travar ou quebrar (RNF17)."
 )
 
 story.append(PageBreak())
@@ -329,24 +348,35 @@ screens = [
      "\"Esqueci minha senha\" e \"Cadastre-se\". Em caso de sucesso, o Supabase Auth já mantém a sessão "
      "salva automaticamente e o app abre o MainScreen."),
     ("CadastroScreen", "Cadastro de novo usuário (nome, e-mail, senha, confirmação de senha) com "
-     "aceite obrigatório dos Termos de Uso (texto exibido na própria tela)."),
+     "aceite obrigatório dos Termos de Uso — o texto \"Termos de Uso e Política de Privacidade\" agora "
+     "é um link que abre a TermosScreen (v4)."),
     ("RecuperarSenhaScreen", "Fluxo de recuperação de senha em duas etapas: solicitar código por "
      "e-mail e, em seguida, informar o código recebido junto com a nova senha."),
     ("MainScreen", "Shell de navegação principal, com barra inferior de 4 abas: Início (Dashboard), "
      "Viagens, Despesas e Perfil."),
-    ("DashboardScreen", "Tela inicial pós-login: saudação personalizada, resumo da viagem ativa "
-     "(gasto vs. orçamento, com indicador circular de progresso), gastos do dia, maior gasto e "
-     "lista das despesas mais recentes. Suporta atualizar puxando a tela (pull-to-refresh)."),
+    ("DashboardScreen", "Tela inicial pós-login: saudação personalizada, resumo da viagem ativa — manual "
+     "ou automática (RF14, v4) — na moeda local da viagem, com indicador circular de progresso (fica "
+     "terracota quando o orçamento estoura), valor convertido para a moeda padrão do usuário com "
+     "seletor de moeda e horário da cotação (RF45/RF46, v4), gastos do dia, maior gasto e lista das "
+     "despesas mais recentes com botão \"Ver todas\" agora funcional (RF28, v4). Suporta pull-to-refresh."),
     ("ViagensScreen", "Lista todas as viagens cadastradas em cards (foto, nome, destino, datas, "
-     "progresso do orçamento), com opções de editar e excluir cada viagem, e botão para cadastrar "
-     "uma nova."),
+     "progresso do orçamento), com opções de editar e excluir cada viagem, marcar/desmarcar como "
+     "viagem ativa do dashboard (ícone de estrela, RF14, v4), e botão para cadastrar uma nova."),
     ("NovaViagemScreen", "Formulário de criação/edição de viagem: foto (câmera/galeria), nome, "
-     "destino, datas de início e fim, e orçamento."),
+     "destino, datas de início e fim, orçamento e moeda local do destino (RF45, v4)."),
     ("DespesasScreen", "Seleciona uma viagem e lista suas despesas, com filtro por categoria. "
      "Permite cadastrar, editar e excluir despesas por um formulário em painel deslizante, incluindo "
-     "categoria, descrição, valor, data e forma de pagamento. Mostra o total das despesas filtradas."),
+     "categoria, descrição, valor, data, forma de pagamento e comprovante anexado (RF22, v4). Mostra o "
+     "total das despesas filtradas e permite exportá-las em CSV (RF23, v4, via link do Supabase Storage)."),
     ("PerfilScreen", "Exibe e permite editar os dados do usuário (foto, nome, e-mail), alterar a "
-     "senha e encerrar a sessão (logoff) via Supabase Auth."),
+     "senha, escolher a moeda padrão (RF29, v4) e encerrar a sessão (logoff). Dá acesso às novas telas "
+     "de Configurações, Sobre o app e Suporte (RF30/RF31/RF32, v4)."),
+    ("ConfiguracoesScreen (v4)", "Preferência de notificações e atalho para os Termos de Uso (RF30)."),
+    ("SobreScreen (v4)", "Informações sobre o app (versão, descrição, contexto do TCC) e atalho para "
+     "os Termos de Uso (RF31)."),
+    ("SuporteScreen (v4)", "Canal de contato (e-mail copiável) e perguntas frequentes (RF32)."),
+    ("TermosScreen (v4)", "Conteúdo real dos Termos de Uso e Política de Privacidade, atendendo à LGPD "
+     "(RF07/RNF14) — antes era só um texto estático sem tela própria."),
 ]
 
 for name, desc in screens:
@@ -388,17 +418,24 @@ bullets([
     "<b>Resolvido na v3:</b> o app passou a ter um link direto e público, gerado automaticamente a cada "
     "atualização do código (GitHub Actions + GitHub Pages) — não é mais necessário instalar nada para "
     "demonstrá-lo. Primeiro deploy já confirmado funcionando.",
+    "<b>Resolvido na v4:</b> nova paleta de cores, câmbio na tela inicial, seleção manual de viagem "
+    "ativa, seletor de moeda padrão, telas de Configurações/Sobre/Suporte, Termos de Uso com conteúdo "
+    "real, anexo de comprovante e exportação de despesas em CSV — ver seção 7, versão 4.",
+    "<b>Pendente de validação com o orientador:</b> o novo levantamento de requisitos do usuário inclui "
+    "um assistente de viagem com IA (RF33–RF40) e leitura automática de notas fiscais por visão "
+    "computacional (RF41–RF44). O próprio documento pede validação com o orientador antes de "
+    "implementar essas duas frentes, então elas ainda não foram desenvolvidas.",
     "<b>Parcialmente testado:</b> o app já foi executado de verdade pela primeira vez fora deste ambiente — "
-    "cadastro de usuário funcionou e o e-mail de confirmação do Supabase chegou normalmente. Ainda faltam "
-    "testar login, upload de foto e o CRUD completo de viagens/despesas antes da apresentação.",
+    "cadastro de usuário funcionou e o e-mail de confirmação do Supabase chegou normalmente. Login, "
+    "upload de foto, CRUD completo de viagens/despesas e as novidades da v4 (câmbio, viagem ativa, "
+    "comprovante, exportação) ainda não foram confirmados em uso real.",
     "Por padrão, o Supabase exige confirmação de e-mail para novas contas — vale revisar essa "
     "configuração no painel do projeto (Authentication) para decidir se isso é desejável na demonstração.",
-    "Tratamento de erros de rede ainda é genérico (mensagem fixa), sem diferenciar tipos de erro.",
-    "Algumas opções da interface ainda são placeholders sem função: botão \"Ver todas\" no Dashboard, "
-    "filtro de despesas, e os itens \"Moeda padrão\", \"Configurações\", \"Sobre o app\" e \"Suporte\" "
-    "na tela de Perfil.",
-    "Termos de Uso exibidos no Cadastro são apenas um texto estático, sem uma tela própria de conteúdo "
-    "legal.",
+    "Tratamento de erros de rede ainda é genérico (mensagem fixa) na maior parte das telas, sem "
+    "diferenciar tipos de erro — exceção feita à conversão de câmbio, que já trata indisponibilidade "
+    "da API separadamente (RNF17).",
+    "RF23 (exportação) foi implementada em CSV, não em PDF — suficiente para abrir em Excel/Sheets, mas "
+    "vale registrar essa escolha caso a banca pergunte especificamente por PDF.",
     "Não há persistência local (offline) dos dados de viagens/despesas — o app depende de conexão com "
     "o Supabase.",
     "Não há rotas nomeadas nem testes automatizados no projeto até o momento.",

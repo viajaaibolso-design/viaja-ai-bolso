@@ -38,5 +38,24 @@
       "Link de acesso ao app: https://viajaaibolso-design.github.io/viaja-ai-bolso/",
       "Primeiro deploy confirmado com sucesso (build e publicação concluídos no GitHub Actions) — link já está no ar"
     ]
+  },
+  {
+    "versao": "4",
+    "data": "15/09/2026",
+    "titulo": "Nova identidade visual, câmbio na tela inicial e RFs pendentes do novo levantamento",
+    "resumo": "A partir do novo levantamento de requisitos e do protótipo de telas enviados pelo usuário, esta etapa aplicou a nova paleta de cores do app e implementou os requisitos novos/pendentes que já podiam ser feitos sem depender de validação do orientador — ou seja, tudo exceto o assistente de IA (RF33–RF40) e a leitura de notas fiscais por visão computacional (RF41–RF44), que o próprio levantamento pede para validar antes de implementar.",
+    "mudancas": [
+      "Nova paleta de cores \"Mapa & Bússola\" (índigo, verde bússola, dourado, terracota, areia), aplicada trocando só os valores em constants.dart — nenhuma tela precisou ser redesenhada",
+      "RF45/RF46 — conversão de câmbio na tela inicial: cada viagem agora tem uma moeda local (definida ao cadastrar/editar a viagem), e o dashboard mostra o total gasto também convertido para a moeda padrão do usuário, com seletor de moeda e horário da última cotação (RNF23). Conversão via API gratuita open.er-api.com, com tratamento de erro caso o serviço esteja indisponível",
+      "RF14 — seleção manual da viagem ativa exibida no dashboard, via ícone de estrela na lista de viagens (antes era sempre escolhida automaticamente)",
+      "RF29 — seletor de moeda padrão funcional na tela de Perfil (também corrigido um bug em que editar o perfil ou trocar a foto resetava a moeda do usuário de volta para BRL sem querer)",
+      "RF30/RF31/RF32 — novas telas de Configurações, Sobre o app e Suporte, antes eram botões sem função no Perfil",
+      "RF07 — Termos de Uso e Política de Privacidade ganharam tela própria com conteúdo real (LGPD), em vez de um texto estático sem link",
+      "RF22 — anexo de comprovante (foto) às despesas, reaproveitando o Supabase Storage já usado para fotos de perfil/viagem",
+      "RF23 — exportação das despesas filtradas em CSV, gerado no app e disponibilizado por um link do Supabase Storage",
+      "Banco de dados: novas colunas viagens.moeda_local, despesas.foto_url e profiles.viagem_ativa_id — é necessário rodar o script supabase/migracao_v4.sql uma vez no SQL Editor do Supabase para o projeto já existente (o app foi feito para continuar funcionando mesmo antes disso, só sem essas funcionalidades novas)",
+      "RF33–RF40 (assistente de IA) e RF41–RF44 (leitura de nota fiscal) ficam para a próxima etapa, após validação com o orientador — quando avançar, será usada a API da Anthropic (Claude) para as duas frentes",
+      "RF23 exporta em CSV (não em PDF) e o app ainda não foi testado rodando de verdade após esta etapa — recomenda-se testar câmbio, viagem ativa, comprovante e exportação antes da apresentação"
+    ]
   }
 ]
