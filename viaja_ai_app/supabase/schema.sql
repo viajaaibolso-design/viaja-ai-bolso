@@ -181,7 +181,13 @@ alter table public.profiles
   add constraint profiles_viagem_ativa_id_fkey
   foreign key (viagem_ativa_id) references public.viagens (id) on delete set null;
 
-create or replace view public.viagens_resumo
+-- A view precisa ser recriada do zero (não dá pra usar "create or
+-- replace"): como moeda_local entra no meio da lista de colunas de
+-- "viagens" por causa do v.*, o Postgres entende isso como "trocar o
+-- nome" de uma coluna já existente da view, o que não é permitido.
+drop view if exists public.viagens_resumo;
+
+create view public.viagens_resumo
   with (security_invoker = true) as
 select
   v.*,
