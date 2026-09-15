@@ -9,6 +9,7 @@ class Viagem {
   final double totalGasto;
   final double percentualGasto;
   final String? idUsuario;
+  final String moedaLocal;
 
   Viagem({
     this.idViagem,
@@ -21,6 +22,7 @@ class Viagem {
     this.totalGasto = 0,
     this.percentualGasto = 0,
     this.idUsuario,
+    this.moedaLocal = 'BRL',
   });
 
   factory Viagem.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class Viagem {
       totalGasto: (json['total_gasto'] as num? ?? 0).toDouble(),
       percentualGasto: (json['percentual_gasto'] as num? ?? 0).toDouble(),
       idUsuario: json['user_id'] as String?,
+      moedaLocal: json['moeda_local'] as String? ?? 'BRL',
     );
   }
 }

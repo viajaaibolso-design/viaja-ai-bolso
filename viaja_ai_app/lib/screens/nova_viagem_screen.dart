@@ -6,6 +6,7 @@ import '../constants.dart';
 import '../models/viagem.dart';
 import '../services/viagem_service.dart';
 import '../services/storage_service.dart';
+import '../utils/moedas.dart';
 
 class NovaViagemScreen extends StatefulWidget {
   final Viagem? viagem;
@@ -22,6 +23,7 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
   DateTime? _dataInicio;
   DateTime? _dataFim;
   bool _loading = false;
+  String _moedaLocal = 'BRL';
 
   // Foto: _fotoUrlExistente é a que já está salva (modo edição);
   // _imagemBytes é uma foto NOVA escolhida nesta sessão, ainda não enviada.
@@ -42,6 +44,7 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
       _dataInicio = DateTime.tryParse(widget.viagem!.dataInicio);
       _dataFim = DateTime.tryParse(widget.viagem!.dataFim);
       _fotoUrlExistente = widget.viagem!.fotoUrl;
+      _moedaLocal = widget.viagem!.moedaLocal;
     }
   }
 
@@ -137,6 +140,7 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
           'data_inicio': _toIso(_dataInicio!),
           'data_fim': _toIso(_dataFim!),
           'orcamento': double.tryParse(_orcamentoCtrl.text) ?? 0,
+          'moeda_local': _moedaLocal,
         });
       } else {
         await ViagemService().cadastrar({
@@ -147,6 +151,7 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
           'data_fim': _toIso(_dataFim!),
           'orcamento': double.tryParse(_orcamentoCtrl.text) ?? 0,
           'user_id': idUsuario,
+          'moeda_local': _moedaLocal,
         });
       }
       if (mounted) Navigator.pop(context);
@@ -360,14 +365,48 @@ class _NovaViagemScreenState extends State<NovaViagemScreen> {
               ],
             ),
             const SizedBox(height: 14),
-            TextField(
-              controller: _orcamentoCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Orçamento previsto (opcional)',
-                hintText: 'R\$ 5.000,00',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _orcamentoCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Orçamento previsto (opcional)',
+                      hintText: '5.000,00',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _moedaLocal,
+                    decoration: InputDecoration(
+                      labelText: 'Moeda local',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: kMoedas.keys
+                        .map((codigo) => DropdownMenuItem(
+                            value: codigo, child: Text(codigo)))
+                        .toList(),
+                    onChanged: (v) =>
+                        setState(() => _moedaLocal = v ?? _moedaLocal),
+                  ),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Moeda usada no destino — é nela que o orçamento e as '
+                'despesas desta viagem serão exibidos (ex.: EUR para uma '
+                'viagem à Europa).',
+                style: TextStyle(fontSize: 11.5, color: kTextGrey.withValues(alpha: 0.9)),
               ),
             ),
             const SizedBox(height: 32),

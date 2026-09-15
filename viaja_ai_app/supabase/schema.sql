@@ -1,7 +1,12 @@
 -- =====================================================================
--- Viajaí Bolso — Schema inicial para o Supabase (Postgres)
+-- Viajaí Bolso — Schema do Supabase (Postgres)
 -- Rode este script inteiro no SQL Editor do seu projeto Supabase
--- (Project > SQL Editor > New query > colar > Run).
+-- (Project > SQL Editor > New query > colar > Run) para um projeto NOVO.
+--
+-- Se o seu projeto já existe (como é o caso aqui), NÃO rode este arquivo
+-- inteiro de novo — rode só o bloco "6. MIGRAÇÃO INCREMENTAL (v4)" no
+-- final, que foi escrito para ser seguro de aplicar em cima do banco que
+-- já está no ar.
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -13,6 +18,7 @@ create table if not exists public.profiles (
   email text not null,
   foto_url text,
   moeda_padrao text not null default 'BRL',
+  viagem_ativa_id uuid,
   created_at timestamptz not null default now()
 );
 
@@ -82,6 +88,7 @@ create table if not exists public.viagens (
   data_inicio date not null,
   data_fim date not null,
   orcamento numeric(12, 2) not null default 0,
+  moeda_local text not null default 'BRL',
   created_at timestamptz not null default now()
 );
 
@@ -91,6 +98,14 @@ create policy "usuário gerencia as próprias viagens"
   on public.viagens for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- profiles.viagem_ativa_id referencia viagens, então o FK só pode ser
+-- criado depois que a tabela viagens existe.
+alter table public.profiles
+  drop constraint if exists profiles_viagem_ativa_id_fkey;
+alter table public.profiles
+  add constraint profiles_viagem_ativa_id_fkey
+  foreign key (viagem_ativa_id) references public.viagens (id) on delete set null;
 
 -- ---------------------------------------------------------------------
 -- 4. DESPESAS
@@ -104,6 +119,7 @@ create table if not exists public.despesas (
   data date not null,
   hora time,
   forma_pagamento text not null default 'Cartão de crédito',
+  foto_url text,
   created_at timestamptz not null default now()
 );
 
@@ -146,7 +162,41 @@ group by v.id;
 -- então cada usuário só enxerga o resumo das próprias viagens.
 
 -- ---------------------------------------------------------------------
--- 6. STORAGE — bucket para fotos (perfil e viagens)
+-- 6. MIGRAÇÃO INCREMENTAL (v4) — rode SÓ ESTE BLOCO em um projeto que já
+--    existia antes da v4. Todos os comandos são seguros de rodar mais de
+--    uma vez (idempotentes).
+-- ---------------------------------------------------------------------
+alter table public.viagens
+  add column if not exists moeda_local text not null default 'BRL';
+
+alter table public.despesas
+  add column if not exists foto_url text;
+
+alter table public.profiles
+  add column if not exists viagem_ativa_id uuid;
+
+alter table public.profiles
+  drop constraint if exists profiles_viagem_ativa_id_fkey;
+alter table public.profiles
+  add constraint profiles_viagem_ativa_id_fkey
+  foreign key (viagem_ativa_id) references public.viagens (id) on delete set null;
+
+create or replace view public.viagens_resumo
+  with (security_invoker = true) as
+select
+  v.*,
+  coalesce(sum(d.valor), 0) as total_gasto,
+  case when v.orcamento > 0
+       then round(coalesce(sum(d.valor), 0) / v.orcamento * 100, 2)
+       else 0
+  end as percentual_gasto
+from public.viagens v
+left join public.despesas d on d.viagem_id = v.id
+group by v.id;
+
+-- ---------------------------------------------------------------------
+-- 7. STORAGE — bucket para fotos (perfil, viagens, comprovantes de
+--    despesa e exportações de CSV)
 -- ---------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('fotos', 'fotos', true)

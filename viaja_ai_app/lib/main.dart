@@ -22,7 +22,7 @@ class ViajaAiApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF007B6E),
+          seedColor: kPrimaryColor,
         ),
         useMaterial3: true,
         fontFamily: 'Roboto',

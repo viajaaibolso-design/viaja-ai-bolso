@@ -9,6 +9,7 @@ class Despesa {
   final String idCategoria;
   final String? categoria;
   final String? icone;
+  final String? fotoUrl;
 
   Despesa({
     this.idDespesa,
@@ -21,6 +22,7 @@ class Despesa {
     required this.idCategoria,
     this.categoria,
     this.icone,
+    this.fotoUrl,
   });
 
   factory Despesa.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class Despesa {
       idCategoria: json['categoria_id'] ?? '',
       categoria: json['categoria'] ?? categoriaJson?['nome'],
       icone: json['icone'] ?? categoriaJson?['icone'],
+      fotoUrl: json['foto_url'] as String?,
     );
   }
 }

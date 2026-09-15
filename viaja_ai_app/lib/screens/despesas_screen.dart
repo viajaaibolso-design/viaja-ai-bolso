@@ -1,9 +1,15 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import '../constants.dart';
 import '../models/despesa.dart';
 import '../models/viagem.dart';
 import '../services/viagem_service.dart';
+import '../services/storage_service.dart';
+import '../utils/moedas.dart';
+import '../utils/exportacao.dart';
 
 class DespesasScreen extends StatefulWidget {
   const DespesasScreen({super.key});
@@ -19,6 +25,7 @@ class _DespesasScreenState extends State<DespesasScreen> {
   Viagem? _viagemSelecionada;
   String _filtroCategoria = 'Todas';
   bool _loading = true;
+  bool _exportando = false;
   late final String _idUsuario;
 
   @override
@@ -66,6 +73,8 @@ class _DespesasScreenState extends State<DespesasScreen> {
   double get _totalFiltrado =>
       _despesasFiltradas.fold(0, (soma, d) => soma + d.valor);
 
+  String get _moedaAtual => _viagemSelecionada?.moedaLocal ?? 'BRL';
+
   IconData _iconeCategoria(String? icone) {
     switch (icone) {
       case 'restaurant':
@@ -81,6 +90,87 @@ class _DespesasScreenState extends State<DespesasScreen> {
     }
   }
 
+  Future<void> _exportar() async {
+    if (_despesasFiltradas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Não há despesas para exportar'),
+          backgroundColor: Colors.red));
+      return;
+    }
+    setState(() => _exportando = true);
+    try {
+      final csv = gerarCsvDespesas(_despesasFiltradas, _moedaAtual);
+      final bytes = Uint8List.fromList(csv.codeUnits);
+      final nomeViagem =
+          (_viagemSelecionada?.nome ?? 'viagem').replaceAll(RegExp(r'\s+'), '_');
+      final caminho =
+          '$_idUsuario/exportacoes/despesas_${nomeViagem}_${DateTime.now().millisecondsSinceEpoch}.csv';
+      final url = await StorageService()
+          .upload(caminho, bytes, contentType: 'text/csv');
+      setState(() => _exportando = false);
+      if (mounted) _mostrarLinkExportacao(url);
+    } catch (_) {
+      setState(() => _exportando = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Erro ao gerar exportação'),
+            backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  void _mostrarLinkExportacao(String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Exportação pronta'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                'Copie o link abaixo e abra no navegador para baixar a planilha (CSV) das despesas filtradas — pronta para prestação de contas.'),
+            const SizedBox(height: 12),
+            SelectableText(url,
+                style: const TextStyle(fontSize: 12, color: kPrimaryColor)),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Fechar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: url));
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Link copiado!'),
+                  backgroundColor: Colors.green));
+            },
+            child: const Text('Copiar link',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _verComprovante(String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: InteractiveViewer(
+          child: Image.network(url,
+              errorBuilder: (_, __, ___) => const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('Não foi possível carregar o comprovante'),
+                  )),
+        ),
+      ),
+    );
+  }
+
   Future<void> _abrirFormulario({Despesa? despesa}) async {
     final descricaoCtrl = TextEditingController(text: despesa?.descricao ?? '');
     final valorCtrl =
@@ -93,6 +183,11 @@ class _DespesasScreenState extends State<DespesasScreen> {
     DateTime dataSelecionada = despesa?.data != null
         ? DateTime.tryParse(despesa!.data) ?? DateTime.now()
         : DateTime.now();
+
+    // RF22 — comprovante anexado à despesa.
+    String? comprovanteUrlExistente = despesa?.fotoUrl;
+    Uint8List? comprovanteBytes;
+    bool comprovanteAlterado = false;
 
     final formas = [
       'Cartão de crédito',
@@ -183,7 +278,7 @@ class _DespesasScreenState extends State<DespesasScreen> {
                         controller: valorCtrl,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Valor (R\$)',
+                          labelText: 'Valor ($_moedaAtual)',
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
@@ -246,6 +341,100 @@ class _DespesasScreenState extends State<DespesasScreen> {
                   onChanged: (v) =>
                       setStateModal(() => formaPagamento = v ?? formas.first),
                 ),
+                const SizedBox(height: 14),
+
+                // Comprovante (RF22)
+                const Text('Comprovante (opcional)',
+                    style: TextStyle(fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    if (comprovanteBytes != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.memory(comprovanteBytes!,
+                            width: 56, height: 56, fit: BoxFit.cover),
+                      )
+                    else if (!comprovanteAlterado &&
+                        comprovanteUrlExistente != null &&
+                        comprovanteUrlExistente!.isNotEmpty)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(comprovanteUrlExistente!,
+                            width: 56,
+                            height: 56,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                                width: 56,
+                                height: 56,
+                                color: kBackground,
+                                child: const Icon(Icons.receipt_long,
+                                    color: kTextGrey))),
+                      )
+                    else
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: kBackground,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.receipt_long,
+                            color: kTextGrey),
+                      ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () async {
+                              final picker = ImagePicker();
+                              final arquivo = await picker.pickImage(
+                                source: ImageSource.gallery,
+                                maxWidth: 1000,
+                                maxHeight: 1000,
+                                imageQuality: 70,
+                              );
+                              if (arquivo != null) {
+                                final bytes = await arquivo.readAsBytes();
+                                setStateModal(() {
+                                  comprovanteBytes = bytes;
+                                  comprovanteAlterado = true;
+                                });
+                              }
+                            },
+                            icon: const Icon(Icons.attach_file, size: 16),
+                            label: Text(
+                                comprovanteBytes != null ||
+                                        (!comprovanteAlterado &&
+                                            comprovanteUrlExistente != null &&
+                                            comprovanteUrlExistente!
+                                                .isNotEmpty)
+                                    ? 'Trocar'
+                                    : 'Anexar'),
+                          ),
+                          if (comprovanteBytes != null ||
+                              (!comprovanteAlterado &&
+                                  comprovanteUrlExistente != null &&
+                                  comprovanteUrlExistente!.isNotEmpty))
+                            TextButton.icon(
+                              onPressed: () => setStateModal(() {
+                                comprovanteBytes = null;
+                                comprovanteUrlExistente = null;
+                                comprovanteAlterado = true;
+                              }),
+                              icon: const Icon(Icons.delete,
+                                  size: 16, color: Colors.red),
+                              label: const Text('Remover',
+                                  style: TextStyle(color: Colors.red)),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -261,6 +450,18 @@ class _DespesasScreenState extends State<DespesasScreen> {
                       final dataStr =
                           '${dataSelecionada.year}-${dataSelecionada.month.toString().padLeft(2, '0')}-${dataSelecionada.day.toString().padLeft(2, '0')}';
 
+                      String? fotoUrl = comprovanteUrlExistente;
+                      if (comprovanteAlterado) {
+                        if (comprovanteBytes != null) {
+                          final caminho =
+                              '$_idUsuario/despesas/${DateTime.now().millisecondsSinceEpoch}.jpg';
+                          fotoUrl = await StorageService()
+                              .upload(caminho, comprovanteBytes!);
+                        } else {
+                          fotoUrl = null;
+                        }
+                      }
+
                       if (despesa != null) {
                         await DespesaService().atualizar({
                           'id_despesa': despesa.idDespesa,
@@ -269,6 +470,7 @@ class _DespesasScreenState extends State<DespesasScreen> {
                           'data': dataStr,
                           'forma_pagamento': formaPagamento,
                           'categoria_id': categoriaSelecionada!.idCategoria,
+                          'foto_url': fotoUrl,
                         });
                       } else {
                         await DespesaService().cadastrar({
@@ -278,6 +480,7 @@ class _DespesasScreenState extends State<DespesasScreen> {
                           'forma_pagamento': formaPagamento,
                           'viagem_id': _viagemSelecionada!.idViagem,
                           'categoria_id': categoriaSelecionada!.idCategoria,
+                          'foto_url': fotoUrl,
                         });
                       }
                       _carregarDespesas();
@@ -339,7 +542,16 @@ class _DespesasScreenState extends State<DespesasScreen> {
         elevation: 0,
         actions: [
           IconButton(
-              icon: const Icon(Icons.filter_alt_outlined), onPressed: () {}),
+            icon: _exportando
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: kPrimaryColor))
+                : const Icon(Icons.ios_share),
+            tooltip: 'Exportar despesas (CSV)',
+            onPressed: _exportando ? null : _exportar,
+          ),
         ],
       ),
       body: _loading
@@ -435,9 +647,32 @@ class _DespesasScreenState extends State<DespesasScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(d.descricao,
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.w500)),
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(d.descricao,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w500)),
+                                            ),
+                                            if (d.fotoUrl != null &&
+                                                d.fotoUrl!.isNotEmpty)
+                                              GestureDetector(
+                                                onTap: () =>
+                                                    _verComprovante(d.fotoUrl!),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.only(
+                                                      left: 6),
+                                                  child: Icon(
+                                                      Icons.attach_file,
+                                                      size: 14,
+                                                      color: kPrimaryColor),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                         Text(
                                           '${d.categoria} · ${d.hora ?? d.data}',
                                           style: const TextStyle(
@@ -450,7 +685,7 @@ class _DespesasScreenState extends State<DespesasScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        'R\$ ${d.valor.toStringAsFixed(2).replaceAll('.', ',')}',
+                                        formatarMoeda(d.valor, _moedaAtual),
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold),
                                       ),
@@ -498,7 +733,7 @@ class _DespesasScreenState extends State<DespesasScreen> {
                               fontWeight: FontWeight.bold,
                               fontSize: 16)),
                       Text(
-                        'R\$ ${_totalFiltrado.toStringAsFixed(2).replaceAll('.', ',')}',
+                        formatarMoeda(_totalFiltrado, _moedaAtual),
                         style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,

@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../constants.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'termos_screen.dart';
 
 class CadastroScreen extends StatefulWidget {
   const CadastroScreen({super.key});
@@ -20,6 +22,24 @@ class _CadastroScreenState extends State<CadastroScreen> {
   bool _verConfirmar = false;
   bool _aceitouTermos = false;
   final _service = AuthService();
+  late final TapGestureRecognizer _termosRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _termosRecognizer = TapGestureRecognizer()..onTap = _abrirTermos;
+  }
+
+  @override
+  void dispose() {
+    _termosRecognizer.dispose();
+    super.dispose();
+  }
+
+  void _abrirTermos() {
+    Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const TermosScreen()));
+  }
 
   void _mostrarErro(String msg) {
     ScaffoldMessenger.of(context)
@@ -168,16 +188,19 @@ class _CadastroScreenState extends State<CadastroScreen> {
                     onChanged: (v) =>
                         setState(() => _aceitouTermos = v ?? false),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text.rich(
                       TextSpan(
                         text: 'Li e aceito os ',
+                        style: const TextStyle(color: kTextDark),
                         children: [
                           TextSpan(
                               text: 'Termos de Uso\ne Política de Privacidade',
-                              style: TextStyle(
+                              recognizer: _termosRecognizer,
+                              style: const TextStyle(
                                   color: kPrimaryColor,
-                                  fontWeight: FontWeight.bold)),
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline)),
                         ],
                       ),
                     ),

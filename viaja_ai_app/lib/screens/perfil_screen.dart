@@ -4,7 +4,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants.dart';
 import '../services/auth_service.dart';
+import '../utils/moedas.dart';
 import 'login_screen.dart';
+import 'configuracoes_screen.dart';
+import 'sobre_screen.dart';
+import 'suporte_screen.dart';
 
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({super.key});
@@ -17,6 +21,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   String _nome = '';
   String _email = '';
   String? _fotoUrl;
+  String _moedaPadrao = 'BRL';
   late final String _idUsuario;
   Uint8List? _fotoBytesLocal;
   bool _carregandoFoto = false;
@@ -36,6 +41,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
         _nome = perfil.nome;
         _email = perfil.email;
         _fotoUrl = perfil.fotoUrl;
+        _moedaPadrao = perfil.moedaPadrao;
       });
     } catch (_) {
       if (mounted) {
@@ -64,7 +70,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       });
 
       final url = await _service.uploadFotoPerfil(_idUsuario, bytes);
-      await _service.atualizarPerfil(_idUsuario, _nome, _email, 'BRL',
+      await _service.atualizarPerfil(_idUsuario, _nome, _email, _moedaPadrao,
           fotoUrl: url);
 
       setState(() {
@@ -154,7 +160,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               await _service.atualizarPerfil(
-                  _idUsuario, nomeCtrl.text, emailCtrl.text, 'BRL');
+                  _idUsuario, nomeCtrl.text, emailCtrl.text, _moedaPadrao);
               await _carregar();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -229,6 +235,50 @@ class _PerfilScreenState extends State<PerfilScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _selecionarMoedaPadrao() async {
+    final escolhida = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Moeda padrão',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: kMoedas.entries.map((e) {
+                  return ListTile(
+                    title: Text('${e.key} — ${e.value}'),
+                    trailing: e.key == _moedaPadrao
+                        ? const Icon(Icons.check, color: kPrimaryColor)
+                        : null,
+                    onTap: () => Navigator.pop(ctx, e.key),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (escolhida == null || escolhida == _moedaPadrao) return;
+    setState(() => _moedaPadrao = escolhida);
+    final resultado = await _service.atualizarPerfil(
+        _idUsuario, _nome, _email, escolhida);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(resultado['mensagem'] ?? 'Moeda padrão atualizada!'),
+          backgroundColor:
+              resultado['code'] == 200 ? Colors.green : Colors.red));
+    }
   }
 
   ImageProvider? get _avatarImage {
@@ -317,23 +367,27 @@ class _PerfilScreenState extends State<PerfilScreen> {
             _OpcaoPerfil(
               icone: Icons.attach_money,
               titulo: 'Moeda padrão',
-              subtitulo: 'BRL - Real (R\$)',
-              onTap: () {},
+              subtitulo:
+                  '$_moedaPadrao - ${kMoedas[_moedaPadrao] ?? ''} (${simboloMoeda(_moedaPadrao)})',
+              onTap: _selecionarMoedaPadrao,
             ),
             _OpcaoPerfil(
               icone: Icons.settings,
               titulo: 'Configurações',
-              onTap: () {},
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ConfiguracoesScreen())),
             ),
             _OpcaoPerfil(
               icone: Icons.info_outline,
               titulo: 'Sobre o app',
-              onTap: () {},
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SobreScreen())),
             ),
             _OpcaoPerfil(
               icone: Icons.support_agent,
               titulo: 'Suporte',
-              onTap: () {},
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SuporteScreen())),
             ),
             const SizedBox(height: 20),
             SizedBox(

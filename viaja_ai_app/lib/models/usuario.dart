@@ -4,6 +4,7 @@ class Usuario {
   final String email;
   final String? fotoUrl;
   final String moedaPadrao;
+  final String? viagemAtivaId;
 
   Usuario({
     required this.idUsuario,
@@ -11,6 +12,7 @@ class Usuario {
     required this.email,
     this.fotoUrl,
     this.moedaPadrao = 'BRL',
+    this.viagemAtivaId,
   });
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class Usuario {
       email: json['email'] ?? '',
       fotoUrl: json['foto_url'],
       moedaPadrao: json['moeda_padrao'] ?? 'BRL',
+      viagemAtivaId: json['viagem_ativa_id'] as String?,
     );
   }
 }

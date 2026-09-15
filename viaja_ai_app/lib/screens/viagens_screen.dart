@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants.dart';
 import '../models/viagem.dart';
+import '../services/auth_service.dart';
 import '../services/viagem_service.dart';
+import '../utils/moedas.dart';
 import 'nova_viagem_screen.dart';
 
 class ViagensScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class _ViagensScreenState extends State<ViagensScreen> {
   List<Viagem> _viagens = [];
   bool _loading = true;
   late final String _idUsuario;
+  String? _viagemAtivaId;
 
   @override
   void initState() {
@@ -28,13 +31,42 @@ class _ViagensScreenState extends State<ViagensScreen> {
     _idUsuario = Supabase.instance.client.auth.currentUser!.id;
     try {
       final lista = await ViagemService().listar(_idUsuario);
+      final perfil = await AuthService().getPerfil(_idUsuario);
       setState(() {
         _viagens = lista;
+        _viagemAtivaId = perfil.viagemAtivaId;
         _loading = false;
       });
     } catch (_) {
       setState(() => _loading = false);
     }
+  }
+
+  Future<void> _definirComoAtiva(Viagem viagem) async {
+    // Tocar de novo na viagem já ativa desmarca (volta ao modo automático).
+    final novaAtiva =
+        _viagemAtivaId == viagem.idViagem ? null : viagem.idViagem;
+    final anterior = _viagemAtivaId;
+    setState(() => _viagemAtivaId = novaAtiva);
+    final ok = await ViagemService().definirViagemAtiva(_idUsuario, novaAtiva);
+    if (!mounted) return;
+    if (!ok) {
+      // Migração v4 do banco ainda não foi aplicada — desfaz a mudança
+      // visual e avisa, em vez de deixar a tela "mentindo".
+      setState(() => _viagemAtivaId = anterior);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            'Não foi possível salvar: rode a migração v4 no Supabase (ver documentação)'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(novaAtiva != null
+          ? '"${viagem.nome}" definida como viagem ativa no dashboard'
+          : 'Viagem ativa voltou a ser escolhida automaticamente'),
+      backgroundColor: kPrimaryColor,
+    ));
   }
 
   Future<void> _confirmarRemocao(Viagem viagem) async {
@@ -62,9 +94,6 @@ class _ViagensScreenState extends State<ViagensScreen> {
       _carregar();
     }
   }
-
-  String _formatarValor(double valor) =>
-      'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
 
   Widget _buildFotoViagem(Viagem v) {
     if (v.fotoUrl != null && v.fotoUrl!.isNotEmpty) {
@@ -139,11 +168,15 @@ class _ViagensScreenState extends State<ViagensScreen> {
                     itemCount: _viagens.length,
                     itemBuilder: (ctx, i) {
                       final v = _viagens[i];
+                      final ativa = _viagemAtivaId == v.idViagem;
                       return Container(
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
+                          border: ativa
+                              ? Border.all(color: kAccentGold, width: 2)
+                              : null,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.05),
@@ -156,10 +189,33 @@ class _ViagensScreenState extends State<ViagensScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Foto
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(16)),
-                              child: _buildFotoViagem(v),
+                            Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(16)),
+                                  child: _buildFotoViagem(v),
+                                ),
+                                if (ativa)
+                                  Positioned(
+                                    top: 10,
+                                    left: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: kAccentGold,
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
+                                      child: const Text('Ativa no dashboard',
+                                          style: TextStyle(
+                                              color: kPrimaryColor,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                              ],
                             ),
                             Padding(
                               padding: const EdgeInsets.all(14),
@@ -178,6 +234,19 @@ class _ViagensScreenState extends State<ViagensScreen> {
                                       ),
                                       Row(
                                         children: [
+                                          IconButton(
+                                            icon: Icon(
+                                                ativa
+                                                    ? Icons.star
+                                                    : Icons.star_border,
+                                                color: kAccentGold,
+                                                size: 22),
+                                            tooltip: ativa
+                                                ? 'Remover como viagem ativa'
+                                                : 'Definir como viagem ativa',
+                                            onPressed: () =>
+                                                _definirComoAtiva(v),
+                                          ),
                                           IconButton(
                                             icon: const Icon(Icons.edit,
                                                 color: kPrimaryColor,
@@ -210,7 +279,7 @@ class _ViagensScreenState extends State<ViagensScreen> {
                                           color: kTextGrey, fontSize: 12)),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Gasto total: ${_formatarValor(v.totalGasto)}',
+                                    'Gasto total: ${formatarMoeda(v.totalGasto, v.moedaLocal)}',
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold),
                                   ),
@@ -219,7 +288,9 @@ class _ViagensScreenState extends State<ViagensScreen> {
                                     value: (v.percentualGasto / 100)
                                         .clamp(0.0, 1.0),
                                     backgroundColor: Colors.grey[200],
-                                    color: kPrimaryColor,
+                                    color: v.percentualGasto > 100
+                                        ? kAlertRust
+                                        : kPrimaryColor,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   Text(
