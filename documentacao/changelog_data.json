@@ -57,5 +57,21 @@
       "RF33–RF40 (assistente de IA) e RF41–RF44 (leitura de nota fiscal) ficam para a próxima etapa, após validação com o orientador — quando avançar, será usada a API da Anthropic (Claude) para as duas frentes",
       "RF23 exporta em CSV (não em PDF) e o app ainda não foi testado rodando de verdade após esta etapa — recomenda-se testar câmbio, viagem ativa, comprovante e exportação antes da apresentação"
     ]
+  },
+  {
+    "versao": "5",
+    "data": "16/09/2026",
+    "titulo": "Assistente de IA no app (RF33–RF40)",
+    "resumo": "Após validação do orientador, foi implementado o assistente de IA do app: uma tela de chat onde o usuário pode tirar dúvidas sobre a viagem ativa, o orçamento e os gastos, e pedir dicas de economia. O assistente usa a API do Gemini (Google AI Studio) — inicialmente o plano era usar a API da Anthropic (Claude), mas ela exige cartão de crédito já no cadastro (mesmo para o crédito gratuito de teste), então o provedor foi trocado para o Gemini, que fornece uma chave de API gratuita sem exigir cartão. O app Flutter nunca fala diretamente com a API de IA nem guarda a chave — isso passa por uma Edge Function do Supabase, que funciona como um servidor intermediário seguro, independente do provedor escolhido.",
+    "mudancas": [
+      "Por que uma Edge Function? A chave da API de IA é um segredo de verdade, diferente da anonKey do Supabase (que é pública por design e protegida por Row Level Security). Se essa chave fosse colocada direto no código do app Flutter, qualquer pessoa poderia extraí-la abrindo o DevTools na versão web — por isso ela fica guardada só no servidor, como 'secret' do projeto Supabase, e nunca é commitada no Git",
+      "Nova Edge Function supabase/functions/chat-ia/index.ts (Deno): recebe a pergunta do usuário e o histórico recente da conversa, monta um prompt de sistema com os dados da viagem ativa (nome, destino, orçamento, total gasto, últimas despesas), chama a API do Gemini (modelo gemini-3.5-flash, trocável por variável de ambiente) e devolve a resposta. Só funciona para usuários autenticados (verificação de sessão já é padrão do Supabase para Edge Functions)",
+      "Banco de dados: novas tabelas conversas e mensagens, com Row Level Security (cada usuário só acessa as próprias conversas/mensagens) — script supabase/migracao_v5.sql para quem já tinha o projeto criado antes desta etapa",
+      "Novo ChatService (lib/services/chat_service.dart): cria/recupera a conversa do usuário, salva as mensagens no banco e aciona a Edge Function",
+      "Nova tela ChatScreen (lib/screens/chat_screen.dart): interface de chat com balões de mensagem, indicador de 'digitando...' e mensagem de boas-vindas explicando o que perguntar",
+      "Novo item 'Assistente' na barra de navegação inferior do app, entre Despesas e Perfil",
+      "Leitura de nota fiscal por visão computacional (RF41–RF44) fica para a próxima etapa, seguindo a ordem combinada com o usuário",
+      "Passo pendente do lado do usuário (fora do código): criar uma chave de API gratuita em aistudio.google.com (não exige cartão), publicar a Edge Function e configurar o secret GEMINI_API_KEY no painel do Supabase — sem isso, o chat fica no ar mas o assistente não consegue responder. Ainda não testado rodando de verdade"
+    ]
   }
 ]

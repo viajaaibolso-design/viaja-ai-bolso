@@ -192,7 +192,9 @@ bullets([
     "método <font face='Courier'>fromJson</font> para converter a resposta do banco.",
     "<b>services/</b> — camada de acesso ao Supabase (AuthService, ViagemService, DespesaService, "
     "DashboardService, StorageService) e à API de câmbio (CurrencyService, v4), usando "
-    "<font face='Courier'>supabase_flutter</font> e <font face='Courier'>http</font>.",
+    "<font face='Courier'>supabase_flutter</font> e <font face='Courier'>http</font>. O ChatService (v5) "
+    "também entra aqui, mas não chama nenhuma API de IA diretamente — ele aciona uma Edge Function do "
+    "Supabase, que é quem de fato fala com o provedor de IA (ver seção 3.4).",
     "<b>utils/</b> (v4) — funções auxiliares puras, sem estado: lista de moedas e formatação de valores "
     "(moedas.dart) e geração do CSV de exportação de despesas (exportacao.dart).",
     "<b>screens/</b> — telas do app, que chamam os services diretamente (não há camada intermediária "
@@ -270,6 +272,22 @@ make_table(
     [4.5 * cm, 3 * cm, 8 * cm],
 )
 
+h2("2.4 MensagemChat (v5) — mensagem_chat.dart")
+body(
+    "Representa uma mensagem do assistente de IA (RF33–RF40), seja do usuário ou da resposta gerada "
+    "pelo Gemini. Persistida na tabela <font face='Courier'>mensagens</font> do Supabase."
+)
+make_table(
+    ["Campo", "Tipo", "Descrição"],
+    [
+        ["conversaId", "String", "Conversa à qual a mensagem pertence (tabela conversas)"],
+        ["papel", "String", "'user' (pergunta do usuário) ou 'assistant' (resposta da IA)"],
+        ["conteudo", "String", "Texto da mensagem"],
+        ["criadoEm", "DateTime?", "Data/hora de envio"],
+    ],
+    [4.5 * cm, 3 * cm, 8 * cm],
+)
+
 story.append(PageBreak())
 
 # =========================================================================
@@ -334,6 +352,42 @@ body(
     "travar ou quebrar (RNF17)."
 )
 
+h2("3.4 ChatService (v5) — assistente de IA")
+body(
+    "Serviço do assistente de viagem por IA (RF33–RF40). É importante destacar uma decisão de "
+    "arquitetura: o <b>app nunca fala diretamente com a API de IA</b>. A chave dessa API é um "
+    "segredo de verdade — diferente da anonKey do Supabase, que é pública por design e só é segura "
+    "porque toda consulta passa pelas políticas de RLS do banco. Se essa chave fosse colocada "
+    "no código do app, ela ficaria exposta por completo na versão web (qualquer pessoa consegue abrir o "
+    "DevTools do navegador e ler o código gerado). Por isso, entre o app e o provedor de IA existe uma "
+    "<b>Edge Function do Supabase</b> (<font face='Courier'>supabase/functions/chat-ia</font>), que roda "
+    "no servidor e é a única parte do sistema que conhece a chave — guardada como \"secret\" do projeto, "
+    "nunca commitada no Git."
+)
+body(
+    "<b>Provedor de IA: Gemini (Google AI Studio).</b> O plano inicial era usar a API da Anthropic "
+    "(Claude), mas ela exige cartão de crédito já no cadastro — mesmo para liberar o crédito gratuito de "
+    "teste. Como o Google AI Studio oferece uma chave de API gratuita sem exigir cartão, o provedor foi "
+    "trocado. A arquitetura (chave só no servidor, dentro da Edge Function) não muda com o provedor "
+    "escolhido; se um dia for preciso trocar de novo, apenas o arquivo da Edge Function precisa mudar."
+)
+make_table(
+    ["Método / Componente", "Recurso", "Função"],
+    [
+        ["ChatService.obterOuCriarConversa()", "tabela conversas", "Recupera a conversa mais recente do usuário ou cria uma nova"],
+        ["ChatService.listarMensagens(...)", "tabela mensagens", "Carrega o histórico salvo ao abrir a tela"],
+        ["ChatService.enviarMensagem(...)", "tabela mensagens + Edge Function chat-ia", "Salva a pergunta, aciona a Edge Function com o histórico e o contexto da viagem ativa, e salva a resposta"],
+        ["Edge Function chat-ia (Deno)", "API do Gemini (Google AI Studio)", "Único ponto do sistema que guarda a chave da API; monta o prompt com os dados da viagem ativa e devolve a resposta gerada"],
+    ],
+    [5.8 * cm, 4.7 * cm, 5 * cm],
+)
+body(
+    "O prompt enviado ao Gemini inclui um resumo da viagem ativa do usuário (nome, destino, orçamento, "
+    "total gasto, percentual do orçamento e últimas despesas), permitindo respostas contextualizadas "
+    "(ex.: \"quanto já gastei hoje?\"). Apenas usuários autenticados conseguem acionar a função — "
+    "comportamento padrão do Supabase para Edge Functions, sem necessidade de código extra."
+)
+
 story.append(PageBreak())
 
 # =========================================================================
@@ -352,8 +406,8 @@ screens = [
      "é um link que abre a TermosScreen (v4)."),
     ("RecuperarSenhaScreen", "Fluxo de recuperação de senha em duas etapas: solicitar código por "
      "e-mail e, em seguida, informar o código recebido junto com a nova senha."),
-    ("MainScreen", "Shell de navegação principal, com barra inferior de 4 abas: Início (Dashboard), "
-     "Viagens, Despesas e Perfil."),
+    ("MainScreen", "Shell de navegação principal, com barra inferior de 5 abas: Início (Dashboard), "
+     "Viagens, Despesas, Assistente (v5) e Perfil."),
     ("DashboardScreen", "Tela inicial pós-login: saudação personalizada, resumo da viagem ativa — manual "
      "ou automática (RF14, v4) — na moeda local da viagem, com indicador circular de progresso (fica "
      "terracota quando o orçamento estoura), valor convertido para a moeda padrão do usuário com "
@@ -377,6 +431,10 @@ screens = [
     ("SuporteScreen (v4)", "Canal de contato (e-mail copiável) e perguntas frequentes (RF32)."),
     ("TermosScreen (v4)", "Conteúdo real dos Termos de Uso e Política de Privacidade, atendendo à LGPD "
      "(RF07/RNF14) — antes era só um texto estático sem tela própria."),
+    ("ChatScreen (v5)", "Tela do assistente de IA (RF33–RF40): balões de mensagem (usuário à direita, "
+     "assistente à esquerda), indicador de \"digitando...\" enquanto aguarda a resposta, mensagem de "
+     "boas-vindas explicando o que perguntar, e histórico persistido no banco (recarregado toda vez que "
+     "a tela é aberta)."),
 ]
 
 for name, desc in screens:
@@ -394,8 +452,9 @@ bullets([
     "(se já houver uma sessão salva).",
     "<b>Login</b> → sucesso leva ao <b>MainScreen</b>; \"Cadastre-se\" leva ao <b>Cadastro</b>; "
     "\"Esqueci minha senha\" leva à <b>Recuperação de Senha</b>.",
-    "<b>MainScreen</b> organiza 4 abas fixas: <b>Dashboard</b> | <b>Viagens</b> (→ Nova/Editar Viagem) "
-    "| <b>Despesas</b> (formulário em painel deslizante) | <b>Perfil</b>.",
+    "<b>MainScreen</b> organiza 5 abas fixas: <b>Dashboard</b> | <b>Viagens</b> (→ Nova/Editar Viagem) "
+    "| <b>Despesas</b> (formulário em painel deslizante) | <b>Assistente</b> (v5, chat de IA) | "
+    "<b>Perfil</b>.",
     "<b>Perfil → Sair da conta</b> encerra a sessão e retorna à tela de <b>Login</b>, limpando todo o "
     "histórico de navegação.",
 ])
@@ -421,14 +480,19 @@ bullets([
     "<b>Resolvido na v4:</b> nova paleta de cores, câmbio na tela inicial, seleção manual de viagem "
     "ativa, seletor de moeda padrão, telas de Configurações/Sobre/Suporte, Termos de Uso com conteúdo "
     "real, anexo de comprovante e exportação de despesas em CSV — ver seção 7, versão 4.",
-    "<b>Pendente de validação com o orientador:</b> o novo levantamento de requisitos do usuário inclui "
-    "um assistente de viagem com IA (RF33–RF40) e leitura automática de notas fiscais por visão "
-    "computacional (RF41–RF44). O próprio documento pede validação com o orientador antes de "
-    "implementar essas duas frentes, então elas ainda não foram desenvolvidas.",
+    "<b>Resolvido na v5:</b> assistente de viagem por IA (RF33–RF40), com a chave da API do Gemini "
+    "protegida no servidor (Edge Function do Supabase) em vez de embutida no app — ver seção 7, versão 5.",
+    "<b>Pendente de validação com o orientador:</b> a leitura automática de notas fiscais por visão "
+    "computacional (RF41–RF44) ainda depende de validação com o orientador antes de ser implementada, "
+    "conforme o próprio levantamento de requisitos pede.",
+    "<b>Pendente do lado do usuário (v5):</b> o assistente de IA só responde de verdade depois que a "
+    "Edge Function for publicada no Supabase e o secret GEMINI_API_KEY for configurado com uma chave "
+    "criada em aistudio.google.com — sem isso, a tela abre normalmente, mas o assistente não consegue "
+    "gerar respostas.",
     "<b>Parcialmente testado:</b> o app já foi executado de verdade pela primeira vez fora deste ambiente — "
     "cadastro de usuário funcionou e o e-mail de confirmação do Supabase chegou normalmente. Login, "
-    "upload de foto, CRUD completo de viagens/despesas e as novidades da v4 (câmbio, viagem ativa, "
-    "comprovante, exportação) ainda não foram confirmados em uso real.",
+    "upload de foto, CRUD completo de viagens/despesas, as novidades da v4 (câmbio, viagem ativa, "
+    "comprovante, exportação) e o assistente de IA (v5) ainda não foram confirmados em uso real.",
     "Por padrão, o Supabase exige confirmação de e-mail para novas contas — vale revisar essa "
     "configuração no painel do projeto (Authentication) para decidir se isso é desejável na demonstração.",
     "Tratamento de erros de rede ainda é genérico (mensagem fixa) na maior parte das telas, sem "

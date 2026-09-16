@@ -226,3 +226,52 @@ create policy "usuário apaga as próprias fotos"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'fotos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------------------------------------------------------------------
+-- 8. ASSISTENTE DE IA (v5) — histórico de conversas do chat (RF33–RF40)
+--    Se o seu projeto já existia antes da v5, rode só o arquivo
+--    supabase/migracao_v5.sql (mesmo conteúdo deste bloco).
+-- ---------------------------------------------------------------------
+create table if not exists public.conversas (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  titulo text not null default 'Assistente de viagem',
+  created_at timestamptz not null default now()
+);
+
+alter table public.conversas enable row level security;
+
+drop policy if exists "usuário gerencia as próprias conversas" on public.conversas;
+create policy "usuário gerencia as próprias conversas"
+  on public.conversas for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create table if not exists public.mensagens (
+  id uuid primary key default gen_random_uuid(),
+  conversa_id uuid not null references public.conversas (id) on delete cascade,
+  papel text not null check (papel in ('user', 'assistant')),
+  conteudo text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.mensagens enable row level security;
+
+drop policy if exists "usuário gerencia mensagens das próprias conversas" on public.mensagens;
+create policy "usuário gerencia mensagens das próprias conversas"
+  on public.mensagens for all
+  using (
+    exists (
+      select 1 from public.conversas c
+      where c.id = mensagens.conversa_id and c.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.conversas c
+      where c.id = mensagens.conversa_id and c.user_id = auth.uid()
+    )
+  );
+
+create index if not exists mensagens_conversa_id_idx
+  on public.mensagens (conversa_id, created_at);

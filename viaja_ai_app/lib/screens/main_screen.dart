@@ -3,6 +3,7 @@ import '../constants.dart';
 import 'dashboard_screen.dart';
 import 'viagens_screen.dart';
 import 'despesas_screen.dart';
+import 'chat_screen.dart';
 import 'perfil_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _MainScreenState extends State<MainScreen> {
     const DashboardScreen(),
     const ViagensScreen(),
     const DespesasScreen(),
+    const ChatScreen(),
     const PerfilScreen(),
   ];
 
@@ -38,6 +40,8 @@ class _MainScreenState extends State<MainScreen> {
               icon: Icon(Icons.luggage), label: 'Viagens'),
           BottomNavigationBarItem(
               icon: Icon(Icons.receipt_long), label: 'Despesas'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.smart_toy_outlined), label: 'Assistente'),
           BottomNavigationBarItem(
               icon: Icon(Icons.person), label: 'Perfil'),
         ],
