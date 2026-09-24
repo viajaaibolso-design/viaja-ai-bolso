@@ -250,7 +250,7 @@ make_table(
         ["idUsuario", "String", "Identificador do usuário (uuid do Supabase Auth)"],
         ["nome / email", "String", "Dados básicos de cadastro"],
         ["fotoUrl", "String?", "URL pública da foto de perfil no Supabase Storage"],
-        ["moedaPadrao", "String", "Moeda padrão do usuário (default: 'BRL') — RF29, também usada na conversão da home (RF46)"],
+        ["moedaPadrao", "String", "Moeda padrão do usuário (default: 'BRL') — RF29, também usada na conversão da home (RF52/RF53)"],
         ["viagemAtivaId (v4)", "String?", "Viagem escolhida manualmente como ativa no dashboard (RF14); null = automático"],
     ],
     [4.5 * cm, 3 * cm, 8 * cm],
@@ -267,15 +267,16 @@ make_table(
         ["orcamento", "double", "Orçamento definido para a viagem"],
         ["totalGasto / percentualGasto", "double", "Valores agregados, calculados pela view viagens_resumo no banco"],
         ["idUsuario", "String?", "Dono da viagem"],
-        ["moedaLocal (v4)", "String", "Moeda do destino (default: 'BRL') — RF45, definida ao cadastrar a viagem"],
+        ["moedaLocal (v4)", "String", "Moeda do destino (default: 'BRL') — RF52, definida ao cadastrar a viagem"],
     ],
     [4.5 * cm, 3 * cm, 8 * cm],
 )
 
 h2("2.4 MensagemChat (v5) — mensagem_chat.dart")
 body(
-    "Representa uma mensagem do assistente de IA (RF33–RF40), seja do usuário ou da resposta gerada "
-    "pelo Gemini. Persistida na tabela <font face='Courier'>mensagens</font> do Supabase."
+    "Representa uma mensagem do assistente de IA (v5 — ver nota sobre a renumeração desse recurso na "
+    "seção 6), seja do usuário ou da resposta gerada pelo Gemini. Persistida na tabela "
+    "<font face='Courier'>mensagens</font> do Supabase."
 )
 make_table(
     ["Campo", "Tipo", "Descrição"],
@@ -284,6 +285,24 @@ make_table(
         ["papel", "String", "'user' (pergunta do usuário) ou 'assistant' (resposta da IA)"],
         ["conteudo", "String", "Texto da mensagem"],
         ["criadoEm", "DateTime?", "Data/hora de envio"],
+    ],
+    [4.5 * cm, 3 * cm, 8 * cm],
+)
+
+h2("2.5 ResultadoExtracao (v6) — resultado_extracao.dart")
+body(
+    "Representa o resultado da leitura automática de uma nota fiscal (RF48–RF51): os dados que a IA "
+    "conseguiu reconhecer na imagem, prontos para pré-preencher o formulário de despesa."
+)
+make_table(
+    ["Campo", "Tipo", "Descrição"],
+    [
+        ["sucesso", "bool", "Se a IA conseguiu extrair os dados com confiança suficiente (RNF21)"],
+        ["estabelecimento", "String?", "Nome do local reconhecido na nota, quando identificado"],
+        ["valor", "double?", "Valor total reconhecido"],
+        ["data", "String?", "Data da compra reconhecida (AAAA-MM-DD)"],
+        ["categoria", "String?", "Categoria de despesa sugerida pela IA"],
+        ["erro", "String?", "Mensagem para exibir quando sucesso é false"],
     ],
     [4.5 * cm, 3 * cm, 8 * cm],
 )
@@ -346,7 +365,7 @@ h2("3.3 CurrencyService (v4) — conversão de câmbio")
 body(
     "Novo serviço que consulta a API pública e gratuita <font face='Courier'>open.er-api.com</font> "
     "(sem necessidade de chave) para converter o total gasto da viagem (na moeda local) para a moeda "
-    "padrão do usuário, usada na tela inicial (RF45/RF46). As cotações ficam em cache na memória do "
+    "padrão do usuário, usada na tela inicial (RF52/RF53). As cotações ficam em cache na memória do "
     "app por 6 horas, guardando também o horário da última consulta para exibir ao usuário (RNF23). Se "
     "a API estiver indisponível, a tela inicial mostra \"Conversão indisponível no momento\" em vez de "
     "travar ou quebrar (RNF17)."
@@ -354,7 +373,8 @@ body(
 
 h2("3.4 ChatService (v5) — assistente de IA")
 body(
-    "Serviço do assistente de viagem por IA (RF33–RF40). É importante destacar uma decisão de "
+    "Serviço do assistente de viagem por IA (v5 — ver nota sobre a renumeração desse recurso na seção "
+    "6). É importante destacar uma decisão de "
     "arquitetura: o <b>app nunca fala diretamente com a API de IA</b>. A chave dessa API é um "
     "segredo de verdade — diferente da anonKey do Supabase, que é pública por design e só é segura "
     "porque toda consulta passa pelas políticas de RLS do banco. Se essa chave fosse colocada "
@@ -388,6 +408,33 @@ body(
     "comportamento padrão do Supabase para Edge Functions, sem necessidade de código extra."
 )
 
+h2("3.5 NotaFiscalService (v6) — leitura de nota fiscal")
+body(
+    "Serviço de leitura automática de notas fiscais por visão computacional (RF48–RF51). Segue "
+    "exatamente o mesmo padrão de segurança do ChatService: o app manda a foto (em base64) para uma "
+    "nova Edge Function, <font face='Courier'>supabase/functions/extrair-nota</font>, que chama o "
+    "Gemini em modo multimodal (lê imagem e texto juntos) para reconhecer os dados. Como o Gemini já "
+    "está configurado para o assistente de IA, esta função reaproveita o mesmo secret "
+    "<font face='Courier'>GEMINI_API_KEY</font> — não é necessário cadastrar nenhuma chave nova."
+)
+make_table(
+    ["Método / Componente", "Recurso", "Função"],
+    [
+        ["NotaFiscalService.extrair(bytes)", "Edge Function extrair-nota", "Envia a foto da nota e devolve um ResultadoExtracao"],
+        ["Edge Function extrair-nota (Deno)", "API do Gemini (multimodal)", "Analisa a imagem e devolve estabelecimento, valor, data e categoria sugerida, em JSON"],
+    ],
+    [5.8 * cm, 4.7 * cm, 5 * cm],
+)
+body(
+    "Para reduzir o risco de a IA \"inventar\" um valor (alucinação), o prompt pede que o modelo "
+    "classifique sua própria confiança na leitura (alta/média/baixa) e devolva campos como nulo quando "
+    "não tiver certeza; a Edge Function só considera a leitura bem-sucedida quando o valor foi "
+    "reconhecido e a confiança não é baixa. Quando a leitura falha ou a confiança é baixa (RNF21), a "
+    "tela simplesmente cai no preenchimento manual, sem travar o cadastro da despesa — e a foto tirada "
+    "continua sendo aproveitada como comprovante da despesa (RF22), mesmo que a extração não tenha "
+    "funcionado."
+)
+
 story.append(PageBreak())
 
 # =========================================================================
@@ -411,17 +458,20 @@ screens = [
     ("DashboardScreen", "Tela inicial pós-login: saudação personalizada, resumo da viagem ativa — manual "
      "ou automática (RF14, v4) — na moeda local da viagem, com indicador circular de progresso (fica "
      "terracota quando o orçamento estoura), valor convertido para a moeda padrão do usuário com "
-     "seletor de moeda e horário da cotação (RF45/RF46, v4), gastos do dia, maior gasto e lista das "
+     "seletor de moeda e horário da cotação (RF52/RF53, v4), gastos do dia, maior gasto e lista das "
      "despesas mais recentes com botão \"Ver todas\" agora funcional (RF28, v4). Suporta pull-to-refresh."),
     ("ViagensScreen", "Lista todas as viagens cadastradas em cards (foto, nome, destino, datas, "
      "progresso do orçamento), com opções de editar e excluir cada viagem, marcar/desmarcar como "
      "viagem ativa do dashboard (ícone de estrela, RF14, v4), e botão para cadastrar uma nova."),
     ("NovaViagemScreen", "Formulário de criação/edição de viagem: foto (câmera/galeria), nome, "
-     "destino, datas de início e fim, orçamento e moeda local do destino (RF45, v4)."),
-    ("DespesasScreen", "Seleciona uma viagem e lista suas despesas, com filtro por categoria. "
-     "Permite cadastrar, editar e excluir despesas por um formulário em painel deslizante, incluindo "
-     "categoria, descrição, valor, data, forma de pagamento e comprovante anexado (RF22, v4). Mostra o "
-     "total das despesas filtradas e permite exportá-las em CSV (RF23, v4, via link do Supabase Storage)."),
+     "destino, datas de início e fim, orçamento e moeda local do destino (RF52, v4)."),
+    ("DespesasScreen", "Seleciona uma viagem e lista suas despesas, com filtro por categoria. Ao "
+     "cadastrar uma despesa nova, o usuário escolhe entre escanear uma nota fiscal (a foto é analisada "
+     "por IA para pré-preencher estabelecimento, valor, data e categoria — RF48/RF49, v6 — sempre "
+     "revisável antes de salvar, RF50) ou preencher manualmente (RF51), sem exigir nota fiscal. Permite "
+     "editar e excluir despesas por um formulário em painel deslizante, incluindo comprovante anexado "
+     "(RF22, v4 — a própria foto da nota escaneada já vira o comprovante). Mostra o total das despesas "
+     "filtradas e permite exportá-las em CSV (RF23, v4, via link do Supabase Storage)."),
     ("PerfilScreen", "Exibe e permite editar os dados do usuário (foto, nome, e-mail), alterar a "
      "senha, escolher a moeda padrão (RF29, v4) e encerrar a sessão (logoff). Dá acesso às novas telas "
      "de Configurações, Sobre o app e Suporte (RF30/RF31/RF32, v4)."),
@@ -431,10 +481,10 @@ screens = [
     ("SuporteScreen (v4)", "Canal de contato (e-mail copiável) e perguntas frequentes (RF32)."),
     ("TermosScreen (v4)", "Conteúdo real dos Termos de Uso e Política de Privacidade, atendendo à LGPD "
      "(RF07/RNF14) — antes era só um texto estático sem tela própria."),
-    ("ChatScreen (v5)", "Tela do assistente de IA (RF33–RF40): balões de mensagem (usuário à direita, "
-     "assistente à esquerda), indicador de \"digitando...\" enquanto aguarda a resposta, mensagem de "
-     "boas-vindas explicando o que perguntar, e histórico persistido no banco (recarregado toda vez que "
-     "a tela é aberta)."),
+    ("ChatScreen (v5)", "Tela do assistente de IA (v5 — ver nota sobre a renumeração desse recurso na "
+     "seção 6): balões de mensagem (usuário à direita, assistente à esquerda), indicador de "
+     "\"digitando...\" enquanto aguarda a resposta, mensagem de boas-vindas explicando o que perguntar, e "
+     "histórico persistido no banco (recarregado toda vez que a tela é aberta)."),
 ]
 
 for name, desc in screens:
@@ -471,6 +521,19 @@ body(
     "um app funcional completo — úteis tanto para o planejamento das próximas entregas quanto para a "
     "banca de apresentação:"
 )
+body(
+    "<b>Nota sobre a renumeração dos requisitos do Agente de IA:</b> o levantamento de requisitos foi "
+    "atualizado entre a v5 e a v6 deste documento, e a numeração RF33–RF40 (usada nas versões 5 deste "
+    "documento) mudou de significado. No levantamento atual, RF33–RF47 correspondem ao <b>Agente de "
+    "vIAgens</b> — um consultor de viagens completo (entrevista prévia, roteiro com gastos estimados, "
+    "indicação de passagens/hospedagem/restaurantes, apoio a trajetos de carro e orientação sobre "
+    "documentação e vacinas), bem mais amplo do que o assistente implementado na v5. O ChatScreen/"
+    "ChatService da v5 continuam no ar e funcionando como um assistente de perguntas e respostas sobre a "
+    "viagem ativa — uma primeira versão simplificada — mas não devem ser confundidos com o Agente de "
+    "vIAgens completo, cujo desenho detalhado (inclusive a decisão entre usar só a IA para estimativas "
+    "ou integrar APIs reais de viagem) ainda depende de validação com o orientador, conforme o próprio "
+    "levantamento exige para esse bloco de requisitos."
+)
 bullets([
     "<b>Resolvido na v2:</b> o backend deixou de ser um servidor fixo em IP local — agora é o Supabase, "
     "acessado via HTTPS, com autenticação e regras de acesso reais (RLS).",
@@ -480,19 +543,24 @@ bullets([
     "<b>Resolvido na v4:</b> nova paleta de cores, câmbio na tela inicial, seleção manual de viagem "
     "ativa, seletor de moeda padrão, telas de Configurações/Sobre/Suporte, Termos de Uso com conteúdo "
     "real, anexo de comprovante e exportação de despesas em CSV — ver seção 7, versão 4.",
-    "<b>Resolvido na v5:</b> assistente de viagem por IA (RF33–RF40), com a chave da API do Gemini "
-    "protegida no servidor (Edge Function do Supabase) em vez de embutida no app — ver seção 7, versão 5.",
-    "<b>Pendente de validação com o orientador:</b> a leitura automática de notas fiscais por visão "
-    "computacional (RF41–RF44) ainda depende de validação com o orientador antes de ser implementada, "
-    "conforme o próprio levantamento de requisitos pede.",
-    "<b>Pendente do lado do usuário (v5):</b> o assistente de IA só responde de verdade depois que a "
-    "Edge Function for publicada no Supabase e o secret GEMINI_API_KEY for configurado com uma chave "
-    "criada em aistudio.google.com — sem isso, a tela abre normalmente, mas o assistente não consegue "
-    "gerar respostas.",
+    "<b>Resolvido na v5:</b> assistente de viagem por IA (chat simples, ver nota de renumeração acima), "
+    "com a chave da API do Gemini protegida no servidor (Edge Function do Supabase) em vez de embutida "
+    "no app — ver seção 7, versão 5.",
+    "<b>Resolvido na v6:</b> leitura automática de notas fiscais por visão computacional (RF48–RF51), "
+    "reaproveitando a mesma Edge Function/chave de IA do assistente — ver seção 7, versão 6.",
+    "<b>Pendente de validação com o orientador:</b> o Agente de vIAgens completo (RF33–RF47) — "
+    "planejamento de roteiro, preços de passagem/hospedagem/restaurante, apoio a viagens de carro e "
+    "documentação/vacinas — ainda depende de validação com o orientador (e, se possível, com usuários "
+    "reais) antes de ser implementado, conforme o próprio levantamento de requisitos pede.",
+    "<b>Pendente do lado do usuário:</b> tanto o assistente de IA (v5) quanto a leitura de nota fiscal "
+    "(v6) só funcionam de verdade depois que a Edge Function correspondente for publicada no Supabase e "
+    "o secret GEMINI_API_KEY estiver configurado com uma chave criada em aistudio.google.com — sem "
+    "isso, as telas abrem normalmente, mas a IA não responde.",
     "<b>Parcialmente testado:</b> o app já foi executado de verdade pela primeira vez fora deste ambiente — "
     "cadastro de usuário funcionou e o e-mail de confirmação do Supabase chegou normalmente. Login, "
     "upload de foto, CRUD completo de viagens/despesas, as novidades da v4 (câmbio, viagem ativa, "
-    "comprovante, exportação) e o assistente de IA (v5) ainda não foram confirmados em uso real.",
+    "comprovante, exportação), o assistente de IA (v5) e a leitura de nota fiscal (v6) ainda não foram "
+    "confirmados em uso real.",
     "Por padrão, o Supabase exige confirmação de e-mail para novas contas — vale revisar essa "
     "configuração no painel do projeto (Authentication) para decidir se isso é desejável na demonstração.",
     "Tratamento de erros de rede ainda é genérico (mensagem fixa) na maior parte das telas, sem "

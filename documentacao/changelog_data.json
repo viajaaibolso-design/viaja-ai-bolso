@@ -73,5 +73,22 @@
       "Leitura de nota fiscal por visão computacional (RF41–RF44) fica para a próxima etapa, seguindo a ordem combinada com o usuário",
       "Passo pendente do lado do usuário (fora do código): criar uma chave de API gratuita em aistudio.google.com (não exige cartão), publicar a Edge Function e configurar o secret GEMINI_API_KEY no painel do Supabase — sem isso, o chat fica no ar mas o assistente não consegue responder. Ainda não testado rodando de verdade"
     ]
+  },
+  {
+    "versao": "6",
+    "data": "24/09/2026",
+    "titulo": "Leitura automática de nota fiscal por visão computacional (RF48-RF51) e novo levantamento de requisitos",
+    "resumo": "O usuário enviou um novo levantamento de requisitos e um protótipo atualizado, com uma mudança importante: o 'Agente de IA' deixou de ser um chat simples e virou o 'Agente de vIAgens', um consultor de viagens completo (entrevista prévia, roteiro com gastos estimados, indicação de passagem/hospedagem/restaurante, apoio a viagens de carro e documentação/vacinas — agora RF33 a RF47). Esse bloco inteiro continua exigindo validação com o orientador antes de ser implementado, igual da vez passada, então esta etapa focou no que já podia avançar com segurança: a leitura automática de nota fiscal (agora RF48-RF51) e a confirmação de que a conversão de câmbio já implementada atende ao que virou RF52/RF53.",
+    "mudancas": [
+      "RF48/RF49 — ao cadastrar uma despesa nova, o usuário escolhe entre 'Escanear nota' ou 'Digitar manualmente'. Ao escanear (câmera ou galeria), a foto é enviada para uma nova Edge Function que usa o Gemini em modo multimodal (lê imagem e texto) para reconhecer estabelecimento, valor, data e sugerir uma categoria, pré-preenchendo o formulário",
+      "RF50 — os dados reconhecidos aparecem nos mesmos campos editáveis do formulário, com um aviso pedindo para conferir antes de salvar — nada é salvo automaticamente sem revisão",
+      "RF51 — o modo 'Digitar manualmente' continua disponível para quando não há nota fiscal, sem nenhuma mudança no fluxo que já existia",
+      "RNF21 — quando a IA não consegue ler os dados com confiança (foto ruim, não é uma nota fiscal, etc.), a tela avisa e deixa os campos em branco para preenchimento manual, sem travar o cadastro da despesa",
+      "Nova Edge Function supabase/functions/extrair-nota, que reaproveita o MESMO secret GEMINI_API_KEY já configurado para o assistente de IA (v5) — não é necessário cadastrar nenhuma chave nova nem pagar por um segundo serviço",
+      "A foto escaneada da nota fiscal passa a ser usada automaticamente como o comprovante da despesa (RF22, v4) — a nota que o usuário já tirou vira a prova de pagamento, sem precisar anexar de novo",
+      "Documentação: seções de modelos e serviços atualizadas (ResultadoExtracao, NotaFiscalService), e nota explicando a renumeração dos requisitos do Agente de IA (RF33-40 antigo → RF33-47 no levantamento atual) para não gerar confusão na leitura do histórico de versões",
+      "RF33-47 (Agente de vIAgens completo) permanecem pendentes de validação com o orientador — o assistente de chat simples da v5 continua no ar, mas é uma versão inicial, não o Agente de vIAgens final",
+      "Ainda não testado rodando de verdade — recomenda-se testar o fluxo de escaneamento com notas fiscais reais antes da apresentação"
+    ]
   }
 ]

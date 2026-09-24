@@ -8,6 +8,8 @@ import '../models/despesa.dart';
 import '../models/viagem.dart';
 import '../services/viagem_service.dart';
 import '../services/storage_service.dart';
+import '../services/nota_fiscal_service.dart';
+import '../models/resultado_extracao.dart';
 import '../utils/moedas.dart';
 import '../utils/exportacao.dart';
 
@@ -189,6 +191,13 @@ class _DespesasScreenState extends State<DespesasScreen> {
     Uint8List? comprovanteBytes;
     bool comprovanteAlterado = false;
 
+    // RF48–RF51 — leitura automática de nota fiscal por visão
+    // computacional. Só faz sentido numa despesa nova (não ao editar).
+    String modoEntrada = despesa == null ? 'escanear' : 'manual';
+    bool extraindo = false;
+    String? avisoExtracao;
+    Color corAvisoExtracao = kPrimaryLight;
+
     final formas = [
       'Cartão de crédito',
       'Cartão de débito',
@@ -203,7 +212,58 @@ class _DespesasScreenState extends State<DespesasScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setStateModal) => Padding(
+        builder: (ctx, setStateModal) {
+          Future<void> escanear(ImageSource fonte) async {
+            final picker = ImagePicker();
+            final arquivo = await picker.pickImage(
+              source: fonte,
+              maxWidth: 1000,
+              maxHeight: 1000,
+              imageQuality: 70,
+            );
+            if (arquivo == null) return;
+            final bytes = await arquivo.readAsBytes();
+            setStateModal(() {
+              extraindo = true;
+              avisoExtracao = null;
+            });
+            final resultado = await NotaFiscalService().extrair(bytes);
+            setStateModal(() {
+              extraindo = false;
+              comprovanteBytes = bytes;
+              comprovanteAlterado = true;
+              if (resultado.sucesso) {
+                if (resultado.estabelecimento != null &&
+                    resultado.estabelecimento!.isNotEmpty) {
+                  descricaoCtrl.text = resultado.estabelecimento!;
+                }
+                if (resultado.valor != null) {
+                  valorCtrl.text = resultado.valor!.toStringAsFixed(2);
+                }
+                if (resultado.data != null) {
+                  final data = DateTime.tryParse(resultado.data!);
+                  if (data != null) dataSelecionada = data;
+                }
+                if (resultado.categoria != null) {
+                  final match = _categorias
+                      .where((c) =>
+                          c.nome.toLowerCase() ==
+                          resultado.categoria!.toLowerCase())
+                      .toList();
+                  if (match.isNotEmpty) categoriaSelecionada = match.first;
+                }
+                avisoExtracao =
+                    'Dados reconhecidos automaticamente. Confira antes de salvar.';
+                corAvisoExtracao = kPrimaryLight;
+              } else {
+                avisoExtracao = resultado.erro ??
+                    'Não conseguimos ler os dados da nota. Preencha manualmente.';
+                corAvisoExtracao = kAlertRust;
+              }
+            });
+          }
+
+          return Padding(
           padding: EdgeInsets.only(
               bottom: MediaQuery.of(ctx).viewInsets.bottom,
               left: 20,
@@ -220,6 +280,156 @@ class _DespesasScreenState extends State<DespesasScreen> {
                       fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
+
+                if (despesa == null) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () =>
+                              setStateModal(() => modoEntrada = 'escanear'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: modoEntrada == 'escanear'
+                                  ? kPrimaryColor
+                                  : kBackground,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: modoEntrada == 'escanear'
+                                      ? kPrimaryColor
+                                      : Colors.grey[300]!),
+                            ),
+                            child: Text('📷 Escanear nota',
+                                style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: modoEntrada == 'escanear'
+                                        ? Colors.white
+                                        : kTextGrey)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () =>
+                              setStateModal(() => modoEntrada = 'manual'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: modoEntrada == 'manual'
+                                  ? kPrimaryColor
+                                  : kBackground,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: modoEntrada == 'manual'
+                                      ? kPrimaryColor
+                                      : Colors.grey[300]!),
+                            ),
+                            child: Text('✍️ Digitar manualmente',
+                                style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: modoEntrada == 'manual'
+                                        ? Colors.white
+                                        : kTextGrey)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  if (modoEntrada == 'escanear') ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 22, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: kPrimaryLight.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: kPrimaryLight.withValues(alpha: 0.5),
+                            width: 1.5),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.receipt_long,
+                              size: 30, color: kPrimaryLight),
+                          const SizedBox(height: 8),
+                          const Text('Aponte a câmera para a nota fiscal',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          const Text('ou selecione uma imagem da galeria',
+                              textAlign: TextAlign.center,
+                              style:
+                                  TextStyle(fontSize: 11.5, color: kTextGrey)),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: extraindo
+                                      ? null
+                                      : () => escanear(ImageSource.camera),
+                                  icon: const Icon(Icons.camera_alt, size: 16),
+                                  label: const Text('Câmera'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: extraindo
+                                      ? null
+                                      : () => escanear(ImageSource.gallery),
+                                  icon: const Icon(Icons.photo_library,
+                                      size: 16),
+                                  label: const Text('Galeria'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (extraindo) ...[
+                            const SizedBox(height: 12),
+                            const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: kPrimaryColor)),
+                                SizedBox(width: 8),
+                                Text('Analisando nota fiscal...',
+                                    style: TextStyle(
+                                        fontSize: 12, color: kTextGrey)),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (avisoExtracao != null)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: corAvisoExtracao.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(avisoExtracao!,
+                          style:
+                              TextStyle(fontSize: 12, color: corAvisoExtracao)),
+                    ),
+                ],
 
                 // Seletor de categoria
                 const Text('Categoria',
@@ -499,7 +709,8 @@ class _DespesasScreenState extends State<DespesasScreen> {
               ],
             ),
           ),
-        ),
+        );
+        },
       ),
     );
   }
