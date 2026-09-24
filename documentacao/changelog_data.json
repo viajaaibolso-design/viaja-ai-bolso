@@ -88,7 +88,9 @@
       "A foto escaneada da nota fiscal passa a ser usada automaticamente como o comprovante da despesa (RF22, v4) — a nota que o usuário já tirou vira a prova de pagamento, sem precisar anexar de novo",
       "Documentação: seções de modelos e serviços atualizadas (ResultadoExtracao, NotaFiscalService), e nota explicando a renumeração dos requisitos do Agente de IA (RF33-40 antigo → RF33-47 no levantamento atual) para não gerar confusão na leitura do histórico de versões",
       "RF33-47 (Agente de vIAgens completo) permanecem pendentes de validação com o orientador — o assistente de chat simples da v5 continua no ar, mas é uma versão inicial, não o Agente de vIAgens final",
-      "Ainda não testado rodando de verdade — recomenda-se testar o fluxo de escaneamento com notas fiscais reais antes da apresentação"
+      "Renomeada a tela e os textos do assistente de IA de 'Assistente de IA' para 'Agente de vIAgens' (título da tela, mensagem de boas-vindas e item da barra de navegação inferior, que ficou 'Agente' por limitação de espaço) — o nome já passa a refletir a terminologia do novo levantamento, mesmo a função por trás continuando a ser a versão inicial (chat simples da v5), não o Agente de vIAgens completo (RF33-47), que segue pendente de validação",
+      "Edge Function extrair-nota publicada pelo painel do Supabase — cadastro de despesa por escaneamento de nota fiscal ainda pendente de teste com notas reais",
+      "No teste do assistente de IA (chat), apareceu erro de conexão ('Failed to fetch') ao chamar a Edge Function chat-ia. Causa provável: o código dessa função foi reescrito para usar o Gemini (troca de provedor feita antes desta etapa), mas a versão publicada no Supabase ainda é a anterior — a função precisa ser reimplantada pelo painel (mesmo fluxo usado para a extrair-nota, colando o conteúdo atual de supabase/functions/chat-ia/index.ts) para passar a usar o Gemini de fato"
     ]
   }
 ]

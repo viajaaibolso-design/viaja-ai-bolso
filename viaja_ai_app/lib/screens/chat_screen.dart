@@ -194,7 +194,7 @@ class _ChatScreenState extends State<ChatScreen> {
           const Icon(Icons.smart_toy_outlined, size: 48, color: kPrimaryColor),
           const SizedBox(height: 12),
           const Text(
-            'Assistente Viajaí Bolso',
+            'Agente de vIAgens',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kTextDark),
           ),
           const SizedBox(height: 8),
@@ -215,7 +215,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: kBackground,
       appBar: AppBar(
-        title: const Text('Assistente de IA',
+        title: const Text('Agente de vIAgens',
             style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: kTextDark,

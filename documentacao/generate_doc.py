@@ -454,7 +454,7 @@ screens = [
     ("RecuperarSenhaScreen", "Fluxo de recuperação de senha em duas etapas: solicitar código por "
      "e-mail e, em seguida, informar o código recebido junto com a nova senha."),
     ("MainScreen", "Shell de navegação principal, com barra inferior de 5 abas: Início (Dashboard), "
-     "Viagens, Despesas, Assistente (v5) e Perfil."),
+     "Viagens, Despesas, Agente (v5/v6) e Perfil."),
     ("DashboardScreen", "Tela inicial pós-login: saudação personalizada, resumo da viagem ativa — manual "
      "ou automática (RF14, v4) — na moeda local da viagem, com indicador circular de progresso (fica "
      "terracota quando o orçamento estoura), valor convertido para a moeda padrão do usuário com "
@@ -481,10 +481,14 @@ screens = [
     ("SuporteScreen (v4)", "Canal de contato (e-mail copiável) e perguntas frequentes (RF32)."),
     ("TermosScreen (v4)", "Conteúdo real dos Termos de Uso e Política de Privacidade, atendendo à LGPD "
      "(RF07/RNF14) — antes era só um texto estático sem tela própria."),
-    ("ChatScreen (v5)", "Tela do assistente de IA (v5 — ver nota sobre a renumeração desse recurso na "
-     "seção 6): balões de mensagem (usuário à direita, assistente à esquerda), indicador de "
-     "\"digitando...\" enquanto aguarda a resposta, mensagem de boas-vindas explicando o que perguntar, e "
-     "histórico persistido no banco (recarregado toda vez que a tela é aberta)."),
+    ("ChatScreen (v5/v6)", "Tela do agente de IA — renomeada nesta etapa (v6) de \"Assistente de IA\" "
+     "para \"Agente de vIAgens\" (título da tela, mensagem de boas-vindas e item da barra de navegação), "
+     "para já alinhar o nome com a nova terminologia do levantamento de requisitos. A função por trás "
+     "continua sendo a da v5 — chat simples de perguntas e respostas — não o Agente de vIAgens completo "
+     "(ver nota sobre a renumeração desse recurso na seção 6). Balões de mensagem (usuário à direita, "
+     "agente à esquerda), indicador de \"digitando...\" enquanto aguarda a resposta, mensagem de "
+     "boas-vindas explicando o que perguntar, e histórico persistido no banco (recarregado toda vez que "
+     "a tela é aberta)."),
 ]
 
 for name, desc in screens:
@@ -503,8 +507,8 @@ bullets([
     "<b>Login</b> → sucesso leva ao <b>MainScreen</b>; \"Cadastre-se\" leva ao <b>Cadastro</b>; "
     "\"Esqueci minha senha\" leva à <b>Recuperação de Senha</b>.",
     "<b>MainScreen</b> organiza 5 abas fixas: <b>Dashboard</b> | <b>Viagens</b> (→ Nova/Editar Viagem) "
-    "| <b>Despesas</b> (formulário em painel deslizante) | <b>Assistente</b> (v5, chat de IA) | "
-    "<b>Perfil</b>.",
+    "| <b>Despesas</b> (formulário em painel deslizante) | <b>Agente</b> (v5, chat de IA, renomeado na "
+    "v6 de \"Assistente\") | <b>Perfil</b>.",
     "<b>Perfil → Sair da conta</b> encerra a sessão e retorna à tela de <b>Login</b>, limpando todo o "
     "histórico de navegação.",
 ])

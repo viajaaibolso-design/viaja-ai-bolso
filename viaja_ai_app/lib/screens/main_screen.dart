@@ -41,7 +41,7 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
               icon: Icon(Icons.receipt_long), label: 'Despesas'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.smart_toy_outlined), label: 'Assistente'),
+              icon: Icon(Icons.smart_toy_outlined), label: 'Agente'),
           BottomNavigationBarItem(
               icon: Icon(Icons.person), label: 'Perfil'),
         ],
