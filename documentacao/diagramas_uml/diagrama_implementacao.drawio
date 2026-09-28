@@ -1,0 +1,29 @@
+<mxfile host="app.diagrams.net" agent="Claude" version="24.7.5" type="device">
+  <diagram id="deployDiagram" name="Diagrama de Implementacao (Implantacao)">
+    <mxGraphModel dx="1000" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="d-node1" value="&lt;&lt;device&gt;&gt;&lt;br&gt;&lt;b&gt;Dispositivo Movel&lt;/b&gt;&lt;br&gt;&lt;br&gt;App Viajai Bolso (Flutter)" style="shape=cube;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;align=center;verticalAlign=middle;size=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="140" width="240" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d-node2" value="&lt;&lt;server&gt;&gt;&lt;br&gt;&lt;b&gt;Servidor de Aplicacao&lt;/b&gt;&lt;br&gt;(192.168.0.9:5000)&lt;br&gt;&lt;br&gt;API REST (Back-end)" style="shape=cube;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;align=center;verticalAlign=middle;size=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="140" width="260" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d-node3" value="&lt;&lt;server&gt;&gt;&lt;br&gt;&lt;b&gt;Servidor de Banco de Dados&lt;/b&gt;&lt;br&gt;&lt;br&gt;SGBD (Banco Relacional)" style="shape=cube;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=center;verticalAlign=middle;size=12;" vertex="1" parent="1">
+          <mxGeometry x="820" y="140" width="240" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d-e1" value="HTTP / JSON (REST)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;startArrow=none;fontSize=11;" edge="1" parent="1" source="d-node1" target="d-node2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d-e2" value="TCP / SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;startArrow=none;fontSize=11;" edge="1" parent="1" source="d-node2" target="d-node3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
