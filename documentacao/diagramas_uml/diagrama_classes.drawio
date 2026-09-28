@@ -1,111 +1,57 @@
 <mxfile host="app.diagrams.net" agent="Claude" version="24.7.5" type="device">
   <diagram id="classDiagram" name="Diagrama de Classes">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="800" math="0" shadow="0">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="650" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <!-- Usuario -->
-        <mxCell id="c-usuario" value="Usuario" style="swimlane;fontStyle=1;align=center;verticalAlign=middle;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=1;resizeParent=0;resizeParentMax=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="40" y="40" width="220" height="194" as="geometry" />
-        </mxCell>
-        <mxCell id="c-usuario-a1" value="- idUsuario: String" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-usuario">
-          <mxGeometry y="30" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-usuario-a2" value="- nome: String" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-usuario">
-          <mxGeometry y="56" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-usuario-a3" value="- email: String" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-usuario">
-          <mxGeometry y="82" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-usuario-div" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;html=1;" vertex="1" parent="c-usuario">
-          <mxGeometry y="108" width="220" height="8" as="geometry" />
-        </mxCell>
-        <mxCell id="c-usuario-m1" value="+ cadastrar(): void" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-usuario">
-          <mxGeometry y="116" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-usuario-m2" value="+ login(): boolean" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-usuario">
-          <mxGeometry y="142" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-usuario-m3" value="+ recuperarSenha(): void" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-usuario">
-          <mxGeometry y="168" width="220" height="26" as="geometry" />
+        <mxCell id="c-usuario" value="&lt;b&gt;Usuario&lt;/b&gt;&lt;br&gt;+ id: int&lt;br&gt;+ nome: string&lt;br&gt;+ email: string&lt;br&gt;+ senha: string" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=14;spacingLeft=8;spacingTop=8;strokeColor=#000000;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="230" height="170" as="geometry" />
         </mxCell>
 
-        <!-- Viagem -->
-        <mxCell id="c-viagem" value="Viagem" style="swimlane;fontStyle=1;align=center;verticalAlign=middle;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=1;resizeParent=0;resizeParentMax=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="420" y="40" width="220" height="194" as="geometry" />
-        </mxCell>
-        <mxCell id="c-viagem-a1" value="- idViagem: String" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-viagem">
-          <mxGeometry y="30" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-viagem-a2" value="- destino: String" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-viagem">
-          <mxGeometry y="56" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-viagem-a3" value="- orcamento: double" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-viagem">
-          <mxGeometry y="82" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-viagem-div" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;html=1;" vertex="1" parent="c-viagem">
-          <mxGeometry y="108" width="220" height="8" as="geometry" />
-        </mxCell>
-        <mxCell id="c-viagem-m1" value="+ criar(): void" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-viagem">
-          <mxGeometry y="116" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-viagem-m2" value="+ editar(): void" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-viagem">
-          <mxGeometry y="142" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-viagem-m3" value="+ calcularProgresso(): double" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-viagem">
-          <mxGeometry y="168" width="220" height="26" as="geometry" />
+        <mxCell id="c-viagem" value="&lt;b&gt;Viagem&lt;/b&gt;&lt;br&gt;+ id: int&lt;br&gt;+ destino: string&lt;br&gt;+ dataInicio: data&lt;br&gt;+ dataFim: data&lt;br&gt;+ orcamento: decimal" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=14;spacingLeft=8;spacingTop=8;strokeColor=#000000;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="400" y="40" width="230" height="170" as="geometry" />
         </mxCell>
 
-        <!-- Despesa -->
-        <mxCell id="c-despesa" value="Despesa" style="swimlane;fontStyle=1;align=center;verticalAlign=middle;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=1;resizeParent=0;resizeParentMax=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="420" y="340" width="220" height="194" as="geometry" />
-        </mxCell>
-        <mxCell id="c-despesa-a1" value="- idDespesa: String" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-despesa">
-          <mxGeometry y="30" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-despesa-a2" value="- valor: double" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-despesa">
-          <mxGeometry y="56" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-despesa-a3" value="- data: Date" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-despesa">
-          <mxGeometry y="82" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-despesa-div" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;html=1;" vertex="1" parent="c-despesa">
-          <mxGeometry y="108" width="220" height="8" as="geometry" />
-        </mxCell>
-        <mxCell id="c-despesa-m1" value="+ registrar(): void" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-despesa">
-          <mxGeometry y="116" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-despesa-m2" value="+ editar(): void" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-despesa">
-          <mxGeometry y="142" width="220" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-despesa-m3" value="+ excluir(): void" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-despesa">
-          <mxGeometry y="168" width="220" height="26" as="geometry" />
+        <mxCell id="c-despesa" value="&lt;b&gt;Despesa&lt;/b&gt;&lt;br&gt;+ id: int&lt;br&gt;+ valor: decimal&lt;br&gt;+ data: data&lt;br&gt;+ descricao: string" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=14;spacingLeft=8;spacingTop=8;strokeColor=#000000;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="760" y="40" width="230" height="170" as="geometry" />
         </mxCell>
 
-        <!-- Categoria -->
-        <mxCell id="c-categoria" value="Categoria" style="swimlane;fontStyle=1;align=center;verticalAlign=middle;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=1;resizeParent=0;resizeParentMax=0;collapsible=0;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="760" y="340" width="200" height="108" as="geometry" />
-        </mxCell>
-        <mxCell id="c-categoria-a1" value="- idCategoria: String" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-categoria">
-          <mxGeometry y="30" width="200" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-categoria-a2" value="- nome: String" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-categoria">
-          <mxGeometry y="56" width="200" height="26" as="geometry" />
-        </mxCell>
-        <mxCell id="c-categoria-a3" value="- icone: String" style="text;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;html=1;" vertex="1" parent="c-categoria">
-          <mxGeometry y="82" width="200" height="26" as="geometry" />
+        <mxCell id="c-categoria" value="&lt;b&gt;Categoria&lt;/b&gt;&lt;br&gt;+ id: int&lt;br&gt;+ nome: string&lt;br&gt;+ icone: string" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=14;spacingLeft=8;spacingTop=8;strokeColor=#000000;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="760" y="320" width="230" height="130" as="geometry" />
         </mxCell>
 
-        <!-- Relationships -->
-        <mxCell id="c-e1" value="possui  (1 -- 0..*)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=none;fontSize=11;" edge="1" parent="1" source="c-usuario" target="c-viagem">
+        <mxCell id="c-e1" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" parent="1" source="c-usuario" target="c-viagem">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="c-e2" value="contém  (1 -- 0..*)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=none;fontSize=11;" edge="1" parent="1" source="c-viagem" target="c-despesa">
+        <mxCell id="c-e2" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" parent="1" source="c-viagem" target="c-despesa">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="c-e3" value="classificada em  (0..* -- 1)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;startArrow=none;fontSize=11;" edge="1" parent="1" source="c-despesa" target="c-categoria">
+        <mxCell id="c-e3" style="endArrow=none;html=1;strokeColor=#000000;" edge="1" parent="1" source="c-despesa" target="c-categoria">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c-l1a" value="1" style="text;html=1;fontSize=16;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="278" y="102" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c-l1b" value="n" style="text;html=1;fontSize=16;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="372" y="102" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c-l2a" value="1" style="text;html=1;fontSize=16;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="638" y="102" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c-l2b" value="n" style="text;html=1;fontSize=16;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="732" y="102" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c-l3a" value="n" style="text;html=1;fontSize=16;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="885" y="218" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c-l3b" value="1" style="text;html=1;fontSize=16;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="885" y="292" width="20" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c-leitura" value="Leitura: 1 Usuario possui n Viagens. 1 Viagem possui n Despesas. 1 Categoria classifica n Despesas." style="text;html=1;fontSize=14;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="500" width="900" height="30" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
