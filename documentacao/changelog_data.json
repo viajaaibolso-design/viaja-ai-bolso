@@ -92,5 +92,21 @@
       "Edge Function extrair-nota publicada pelo painel do Supabase — cadastro de despesa por escaneamento de nota fiscal ainda pendente de teste com notas reais",
       "No teste do assistente de IA (chat), apareceu erro de conexão ('Failed to fetch') ao chamar a Edge Function chat-ia. Causa provável: o código dessa função foi reescrito para usar o Gemini (troca de provedor feita antes desta etapa), mas a versão publicada no Supabase ainda é a anterior — a função precisa ser reimplantada pelo painel (mesmo fluxo usado para a extrair-nota, colando o conteúdo atual de supabase/functions/chat-ia/index.ts) para passar a usar o Gemini de fato"
     ]
+  },
+  {
+    "versao": "7",
+    "data": "05/10/2026",
+    "titulo": "Leitura de nota fiscal por QR Code (NFC-e), além da foto (RF48-RF51)",
+    "resumo": "O usuário perguntou se dava para ler a nota fiscal pelo QR Code em vez de só por foto, e foi claro que a ideia era decodificar o QR de verdade (como um leitor de código de barras), não tirar uma foto do QR e pedir pra IA 'enxergar' o código nela. Pesquisamos como funciona o QR Code de uma NFC-e brasileira: ele não traz o valor nem os itens da compra, só uma URL de consulta no site da Receita do estado emissor, com a chave de acesso de 44 dígitos. Por isso, a leitura virou um fluxo de duas partes — decodificação do QR localmente no aparelho (sem IA, via pacote mobile_scanner) e, depois, uma Edge Function no servidor que busca essa página de consulta e usa o Gemini (em modo texto, não mais visão) para ler os dados ali, o que tende a ser mais confiável que adivinhar a partir de uma foto. Também avaliamos o impacto no tamanho do app antes de implementar: a biblioteca usa APIs nativas (ML Kit/Vision) e soma só ~200 KB a 2,4 MB no Android, e nada no iOS, então não pesa no app.",
+    "mudancas": [
+      "Adicionado o pacote mobile_scanner (^7.3.0) ao pubspec.yaml, para decodificar QR Code localmente, pela câmera, em Android/iOS/Web — sem precisar de rede nem de IA nesse passo",
+      "Nova tela EscanearQrcodeScreen (lib/screens/escanear_qrcode_screen.dart): abre a câmera com uma moldura de leitura, detecta o QR Code automaticamente e devolve o conteúdo lido para a tela de despesas",
+      "Nova Edge Function supabase/functions/extrair-nota-qrcode: recebe o conteúdo do QR Code, extrai a chave de acesso de 44 dígitos, identifica o estado emissor pelos 2 primeiros dígitos da chave (tabela de códigos do IBGE) e, se for uma nota da Paraíba (PB), busca a página oficial de consulta da SEFAZ-PB e pede ao Gemini (modo texto) para extrair estabelecimento, valor, data e categoria sugerida — mesmo contrato de resposta (ResultadoExtracao) já usado pela extrair-nota, reaproveitando o mesmo secret GEMINI_API_KEY",
+      "Cobertura inicial limitada à Paraíba (PB), de propósito: os outros 26 estados têm páginas de consulta diferentes entre si, e implementar todas de uma vez seria desproporcional para o escopo do TCC. Para nota de outro estado (ou QR ilegível), a função devolve um erro claro e a tela de despesas cai automaticamente no fluxo por foto/manual já existente — nada trava para o usuário",
+      "NotaFiscalService ganhou o método extrairPorQrCode(qrContent), espelhando o mesmo padrão de segurança do extrair() por foto (a chave de IA nunca sai do servidor)",
+      "DespesasScreen: a lógica que aplica o resultado da IA aos campos do formulário (antes só dentro da função de escanear por foto) foi extraída para aplicarResultado(), reutilizada tanto pelo fluxo de foto quanto pelo novo fluxo de QR Code — evita duplicar a lógica de preenchimento/aviso",
+      "Novo botão 'Ler QR Code da nota (PB)' na tela de nova despesa, abaixo das opções de Câmera/Galeria já existentes",
+      "mobile_scanner ainda não foi testado em um app rodando de verdade neste ambiente (sem Flutter instalado aqui); e a Edge Function extrair-nota-qrcode também precisa ser publicada pelo painel do Supabase (mesmo processo das demais) antes de funcionar de ponta a ponta"
+    ]
   }
 ]

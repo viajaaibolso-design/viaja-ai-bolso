@@ -176,6 +176,7 @@ make_table(
         ["image_picker / image_picker_for_web", "Seleção de fotos (perfil, viagem e comprovante de despesa), enviadas ao Supabase Storage"],
         ["intl", "Suporte a internacionalização/formatação (incluído, uso pontual)"],
         ["http (v4)", "Consulta à API pública de câmbio (open.er-api.com) usada na conversão de moeda da tela inicial"],
+        ["mobile_scanner (v7)", "Leitura do QR Code da nota fiscal (NFC-e) direto pela câmera, localmente no aparelho, sem IA nesse passo"],
     ],
     [4.5 * cm, 11 * cm],
 )
@@ -408,31 +409,43 @@ body(
     "comportamento padrão do Supabase para Edge Functions, sem necessidade de código extra."
 )
 
-h2("3.5 NotaFiscalService (v6) — leitura de nota fiscal")
+h2("3.5 NotaFiscalService (v6/v7) — leitura de nota fiscal")
 body(
-    "Serviço de leitura automática de notas fiscais por visão computacional (RF48–RF51). Segue "
-    "exatamente o mesmo padrão de segurança do ChatService: o app manda a foto (em base64) para uma "
-    "nova Edge Function, <font face='Courier'>supabase/functions/extrair-nota</font>, que chama o "
-    "Gemini em modo multimodal (lê imagem e texto juntos) para reconhecer os dados. Como o Gemini já "
-    "está configurado para o assistente de IA, esta função reaproveita o mesmo secret "
-    "<font face='Courier'>GEMINI_API_KEY</font> — não é necessário cadastrar nenhuma chave nova."
+    "Serviço de leitura automática de notas fiscais, com DOIS caminhos possíveis. O primeiro (v6) é por "
+    "visão computacional: o app manda a foto (em base64) para a Edge Function "
+    "<font face='Courier'>supabase/functions/extrair-nota</font>, que chama o Gemini em modo multimodal "
+    "(lê imagem e texto juntos) para reconhecer os dados. O segundo (v7, novo) é pelo QR Code impresso "
+    "na nota: a tela EscanearQrcodeScreen usa o pacote mobile_scanner para DECODIFICAR o QR localmente "
+    "no aparelho (sem IA nesse passo — isso não é 'tirar uma foto do QR e perguntar pra IA', é leitura "
+    "de código de barras de verdade, via CameraX/ML Kit no Android e AVFoundation/Vision no iOS); só o "
+    "conteúdo já decodificado (uma URL curta) é enviado à nova Edge Function "
+    "<font face='Courier'>supabase/functions/extrair-nota-qrcode</font>, que busca a página oficial de "
+    "consulta da nota no site da Receita Estadual e pede ao Gemini (modo texto, sem visão) para ler os "
+    "dados ali — uma fonte mais confiável que uma foto, por vir direto do órgão emissor. Cobertura "
+    "inicial do caminho por QR Code: somente notas emitidas na Paraíba (PB), estado de testes do "
+    "projeto; para qualquer outro estado, a função devolve um erro claro e a tela cai automaticamente "
+    "no fluxo por foto/manual, sem travar nada. As duas Edge Functions reaproveitam o mesmo secret "
+    "<font face='Courier'>GEMINI_API_KEY</font> já configurado para o assistente de IA — não é "
+    "necessário cadastrar nenhuma chave nova."
 )
 make_table(
     ["Método / Componente", "Recurso", "Função"],
     [
         ["NotaFiscalService.extrair(bytes)", "Edge Function extrair-nota", "Envia a foto da nota e devolve um ResultadoExtracao"],
         ["Edge Function extrair-nota (Deno)", "API do Gemini (multimodal)", "Analisa a imagem e devolve estabelecimento, valor, data e categoria sugerida, em JSON"],
+        ["NotaFiscalService.extrairPorQrCode (v7)", "Edge Function extrair-nota-qrcode", "Envia o conteúdo do QR Code lido e devolve um ResultadoExtracao"],
+        ["Edge Function extrair-nota-qrcode (v7, Deno)", "Consulta SEFAZ-PB + Gemini (texto)", "Busca a nota pela chave de acesso e pede ao Gemini para ler estabelecimento, valor, data e categoria do texto da página"],
     ],
     [5.8 * cm, 4.7 * cm, 5 * cm],
 )
 body(
-    "Para reduzir o risco de a IA \"inventar\" um valor (alucinação), o prompt pede que o modelo "
-    "classifique sua própria confiança na leitura (alta/média/baixa) e devolva campos como nulo quando "
-    "não tiver certeza; a Edge Function só considera a leitura bem-sucedida quando o valor foi "
-    "reconhecido e a confiança não é baixa. Quando a leitura falha ou a confiança é baixa (RNF21), a "
-    "tela simplesmente cai no preenchimento manual, sem travar o cadastro da despesa — e a foto tirada "
-    "continua sendo aproveitada como comprovante da despesa (RF22), mesmo que a extração não tenha "
-    "funcionado."
+    "Para reduzir o risco de a IA \"inventar\" um valor (alucinação), o prompt (nos dois caminhos) pede "
+    "que o modelo classifique sua própria confiança na leitura (alta/média/baixa) e devolva campos como "
+    "nulo quando não tiver certeza; a Edge Function só considera a leitura bem-sucedida quando o valor "
+    "foi reconhecido e a confiança não é baixa. Quando a leitura falha ou a confiança é baixa (RNF21), a "
+    "tela simplesmente cai no preenchimento manual, sem travar o cadastro da despesa — e, no caminho por "
+    "foto, a imagem tirada continua sendo aproveitada como comprovante da despesa (RF22), mesmo que a "
+    "extração não tenha funcionado."
 )
 
 story.append(PageBreak())
@@ -466,11 +479,12 @@ screens = [
     ("NovaViagemScreen", "Formulário de criação/edição de viagem: foto (câmera/galeria), nome, "
      "destino, datas de início e fim, orçamento e moeda local do destino (RF52, v4)."),
     ("DespesasScreen", "Seleciona uma viagem e lista suas despesas, com filtro por categoria. Ao "
-     "cadastrar uma despesa nova, o usuário escolhe entre escanear uma nota fiscal (a foto é analisada "
-     "por IA para pré-preencher estabelecimento, valor, data e categoria — RF48/RF49, v6 — sempre "
-     "revisável antes de salvar, RF50) ou preencher manualmente (RF51), sem exigir nota fiscal. Permite "
-     "editar e excluir despesas por um formulário em painel deslizante, incluindo comprovante anexado "
-     "(RF22, v4 — a própria foto da nota escaneada já vira o comprovante). Mostra o total das despesas "
+     "cadastrar uma despesa nova, o usuário escolhe entre escanear uma nota fiscal por foto (a imagem é "
+     "analisada por IA para pré-preencher estabelecimento, valor, data e categoria — RF48/RF49, v6 — "
+     "sempre revisável antes de salvar, RF50), ler o QR Code da nota (v7, mesmo pré-preenchimento, hoje "
+     "só para notas da Paraíba) ou preencher manualmente (RF51), sem exigir nota fiscal. Permite editar "
+     "e excluir despesas por um formulário em painel deslizante, incluindo comprovante anexado (RF22, "
+     "v4 — a própria foto da nota escaneada já vira o comprovante). Mostra o total das despesas "
      "filtradas e permite exportá-las em CSV (RF23, v4, via link do Supabase Storage)."),
     ("PerfilScreen", "Exibe e permite editar os dados do usuário (foto, nome, e-mail), alterar a "
      "senha, escolher a moeda padrão (RF29, v4) e encerrar a sessão (logoff). Dá acesso às novas telas "
@@ -552,6 +566,11 @@ bullets([
     "no app — ver seção 7, versão 5.",
     "<b>Resolvido na v6:</b> leitura automática de notas fiscais por visão computacional (RF48–RF51), "
     "reaproveitando a mesma Edge Function/chave de IA do assistente — ver seção 7, versão 6.",
+    "<b>Resolvido na v7:</b> segundo caminho de leitura de nota fiscal, agora pelo QR Code da NFC-e "
+    "(decodificado localmente no aparelho, sem IA nesse passo), com uma nova Edge Function que consulta "
+    "a nota direto no site da Receita e usa o Gemini só para ler o texto da página — cobertura inicial "
+    "limitada a notas da Paraíba (PB), com fallback automático para o fluxo por foto/manual nos demais "
+    "casos — ver seção 7, versão 7.",
     "<b>Pendente de validação com o orientador:</b> o Agente de vIAgens completo (RF33–RF47) — "
     "planejamento de roteiro, preços de passagem/hospedagem/restaurante, apoio a viagens de carro e "
     "documentação/vacinas — ainda depende de validação com o orientador (e, se possível, com usuários "

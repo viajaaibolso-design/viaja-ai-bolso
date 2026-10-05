@@ -9,6 +9,7 @@ import '../models/viagem.dart';
 import '../services/viagem_service.dart';
 import '../services/storage_service.dart';
 import '../services/nota_fiscal_service.dart';
+import 'escanear_qrcode_screen.dart';
 import '../models/resultado_extracao.dart';
 import '../utils/moedas.dart';
 import '../utils/exportacao.dart';
@@ -213,25 +214,9 @@ class _DespesasScreenState extends State<DespesasScreen> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setStateModal) {
-          Future<void> escanear(ImageSource fonte) async {
-            final picker = ImagePicker();
-            final arquivo = await picker.pickImage(
-              source: fonte,
-              maxWidth: 1000,
-              maxHeight: 1000,
-              imageQuality: 70,
-            );
-            if (arquivo == null) return;
-            final bytes = await arquivo.readAsBytes();
-            setStateModal(() {
-              extraindo = true;
-              avisoExtracao = null;
-            });
-            final resultado = await NotaFiscalService().extrair(bytes);
+          void aplicarResultado(ResultadoExtracao resultado) {
             setStateModal(() {
               extraindo = false;
-              comprovanteBytes = bytes;
-              comprovanteAlterado = true;
               if (resultado.sucesso) {
                 if (resultado.estabelecimento != null &&
                     resultado.estabelecimento!.isNotEmpty) {
@@ -261,6 +246,45 @@ class _DespesasScreenState extends State<DespesasScreen> {
                 corAvisoExtracao = kAlertRust;
               }
             });
+          }
+
+          Future<void> escanear(ImageSource fonte) async {
+            final picker = ImagePicker();
+            final arquivo = await picker.pickImage(
+              source: fonte,
+              maxWidth: 1000,
+              maxHeight: 1000,
+              imageQuality: 70,
+            );
+            if (arquivo == null) return;
+            final bytes = await arquivo.readAsBytes();
+            setStateModal(() {
+              extraindo = true;
+              avisoExtracao = null;
+            });
+            final resultado = await NotaFiscalService().extrair(bytes);
+            comprovanteBytes = bytes;
+            comprovanteAlterado = true;
+            aplicarResultado(resultado);
+          }
+
+          // RF48–RF51 (v7) — leitura da nota pelo QR Code impresso nela
+          // (NFC-e), em vez de foto. Cobertura inicial: notas da Paraíba
+          // (PB); fora isso, a Edge Function já devolve um erro claro e
+          // aplicarResultado() cai no aviso de preenchimento manual,
+          // mantendo o mesmo comportamento de fallback do fluxo por foto.
+          Future<void> escanearQrCode() async {
+            final qrContent = await Navigator.of(ctx).push<String>(
+              MaterialPageRoute(builder: (_) => const EscanearQrcodeScreen()),
+            );
+            if (qrContent == null) return;
+            setStateModal(() {
+              extraindo = true;
+              avisoExtracao = null;
+            });
+            final resultado =
+                await NotaFiscalService().extrairPorQrCode(qrContent);
+            aplicarResultado(resultado);
           }
 
           return Padding(
@@ -392,6 +416,16 @@ class _DespesasScreenState extends State<DespesasScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: extraindo ? null : escanearQrCode,
+                              icon: const Icon(Icons.qr_code_scanner,
+                                  size: 16),
+                              label: const Text('Ler QR Code da nota (PB)'),
+                            ),
                           ),
                           if (extraindo) ...[
                             const SizedBox(height: 12),
