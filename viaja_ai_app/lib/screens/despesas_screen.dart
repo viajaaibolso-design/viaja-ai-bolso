@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -100,7 +101,12 @@ class _DespesasScreenState extends State<DespesasScreen> {
     setState(() => _exportando = true);
     try {
       final csv = gerarCsvDespesas(_despesasFiltradas, _moedaAtual);
-      final bytes = Uint8List.fromList(csv.codeUnits);
+      // BOM (marca de ordem de bytes) + UTF-8 de verdade: sem isso, o Excel
+      // no Windows abre o CSV lendo os acentos errado (ou pior — antes daqui
+      // usava "codeUnits" em vez de UTF-8, que não é a mesma coisa e corrompe
+      // qualquer caractere fora do intervalo Latin-1, tipo emoji numa
+      // descrição de despesa).
+      final bytes = Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8.encode(csv)]);
       final nomeViagem =
           (_viagemSelecionada?.nome ?? 'viagem').replaceAll(RegExp(r'\s+'), '_');
       final caminho =
@@ -109,11 +115,14 @@ class _DespesasScreenState extends State<DespesasScreen> {
           .upload(caminho, bytes, contentType: 'text/csv');
       setState(() => _exportando = false);
       if (mounted) _mostrarLinkExportacao(url);
-    } catch (_) {
+    } catch (e) {
+      // ignore: avoid_print
+      print('Erro ao exportar despesas: $e');
       setState(() => _exportando = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Erro ao gerar exportação'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'Erro ao gerar exportação: ${e.toString().replaceFirst('Exception: ', '')}'),
             backgroundColor: Colors.red));
       }
     }
