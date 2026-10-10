@@ -5,9 +5,12 @@ import '../models/mensagem_chat.dart';
 import '../services/chat_service.dart';
 import '../services/viagem_service.dart';
 
-/// Tela do assistente de IA (RF33–RF40) — chat simples, com histórico
-/// salvo no banco, onde o usuário pode tirar dúvidas sobre a viagem
-/// ativa, orçamento e gastos.
+/// Tela do Agente de vIAgens (RF33–RF47) — chat sobre a viagem ativa
+/// (orçamento, gastos, dicas de economia) e, desde a v9, um modo de
+/// planejamento: o usuário responde uma pequena entrevista e recebe um
+/// roteiro com estimativa de custos e sugestões de passagem/hospedagem/
+/// restaurante (e dicas de estrada, se for de carro) — tudo estimado
+/// pela IA, sem consultar preços reais. Histórico salvo no banco.
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -150,6 +153,267 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// Envia a entrevista de planejamento (preenchida em _abrirPlanejamento)
+  /// e mostra o resultado no chat, do mesmo jeito que uma pergunta comum
+  /// — reaproveita o histórico/persistência que já existia para o chat.
+  Future<void> _enviarPlanejamento(Map<String, dynamic> entrevista) async {
+    if (_conversaId == null || _enviando) return;
+
+    final historicoAnterior = List<MensagemChat>.from(_mensagens);
+    final resumo = _chatService.resumirEntrevista(entrevista);
+    final mensagemOtimista = MensagemChat(
+      conversaId: _conversaId!,
+      papel: 'user',
+      conteudo: resumo,
+    );
+
+    setState(() {
+      _mensagens = [..._mensagens, mensagemOtimista];
+      _enviando = true;
+    });
+    _rolarParaFim();
+
+    try {
+      final resposta = await _chatService.planejarViagem(
+        conversaId: _conversaId!,
+        entrevista: entrevista,
+      );
+      if (!mounted) return;
+      setState(() {
+        _mensagens = [..._mensagens, resposta];
+        _enviando = false;
+      });
+      _rolarParaFim();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _mensagens = historicoAnterior;
+        _enviando = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceFirst('Exception: ', '')),
+        backgroundColor: kAlertRust,
+      ));
+    }
+  }
+
+  DateTime? _parseDataContexto(dynamic valor) {
+    if (valor is! String || valor.isEmpty) return null;
+    return DateTime.tryParse(valor);
+  }
+
+  /// Abre a entrevista de planejamento (painel deslizante): destino,
+  /// datas, orçamento, meio de transporte e preferências. Pré-preenche o
+  /// que já dá pra aproveitar da viagem ativa, mas tudo é editável.
+  Future<void> _abrirPlanejamento() async {
+    final destinoCtrl = TextEditingController(
+        text: _contextoViagem?['destino']?.toString() ?? '');
+    final orcamentoCtrl = TextEditingController(
+        text: _contextoViagem?['orcamento'] != null
+            ? _contextoViagem!['orcamento'].toString()
+            : '');
+    final preferenciasCtrl = TextEditingController();
+    DateTime? dataInicio = _parseDataContexto(_contextoViagem?['data_inicio']);
+    DateTime? dataFim = _parseDataContexto(_contextoViagem?['data_fim']);
+    String meioTransporte = 'Avião';
+    String? erroDestino;
+
+    final confirmado = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateModal) {
+          Future<void> escolherData(bool inicio) async {
+            final data = await showDatePicker(
+              context: ctx,
+              initialDate: (inicio ? dataInicio : dataFim) ?? DateTime.now(),
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2035),
+              builder: (ctx, child) => Theme(
+                data: Theme.of(ctx)
+                    .copyWith(colorScheme: const ColorScheme.light(primary: kPrimaryColor)),
+                child: child!,
+              ),
+            );
+            if (data == null) return;
+            setStateModal(() {
+              if (inicio) {
+                dataInicio = data;
+              } else {
+                dataFim = data;
+              }
+            });
+          }
+
+          Widget campoData(String rotulo, DateTime? valor, VoidCallback onTap) {
+            return GestureDetector(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[400]!),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.calendar_today, size: 16, color: kTextGrey),
+                    const SizedBox(width: 6),
+                    Text(
+                      valor == null
+                          ? rotulo
+                          : '${valor!.day.toString().padLeft(2, '0')}/${valor!.month.toString().padLeft(2, '0')}/${valor!.year}',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                left: 20,
+                right: 20,
+                top: 20),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Planejar viagem com IA',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Responda algumas perguntas e o Agente de vIAgens monta um '
+                    'roteiro com estimativa de custos e sugestões de passagem, '
+                    'hospedagem e restaurantes (e dicas de estrada, se for de '
+                    'carro). Tudo estimado pela IA — confira antes de decidir algo.',
+                    style: TextStyle(fontSize: 12.5, color: kTextGrey),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: destinoCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Destino',
+                      hintText: 'Ex.: Gramado, RS',
+                      errorText: erroDestino,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: campoData('Data de início', dataInicio,
+                            () => escolherData(true)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: campoData(
+                            'Data de fim', dataFim, () => escolherData(false)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: orcamentoCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Orçamento aproximado (opcional)',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: meioTransporte,
+                    decoration: InputDecoration(
+                      labelText: 'Meio de transporte',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: ['Avião', 'Carro', 'Ônibus', 'Outro']
+                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .toList(),
+                    onChanged: (v) => setStateModal(
+                        () => meioTransporte = v ?? meioTransporte),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: preferenciasCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Preferências (opcional)',
+                      hintText: 'Ex.: praia, aventura, gastronomia, família...',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (destinoCtrl.text.trim().isEmpty) {
+                          setStateModal(
+                              () => erroDestino = 'Informe o destino');
+                          return;
+                        }
+                        Navigator.pop(ctx, true);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kPrimaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Gerar roteiro',
+                          style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (confirmado != true) return;
+
+    String? dataInicioStr;
+    String? dataFimStr;
+    if (dataInicio != null) {
+      dataInicioStr =
+          '${dataInicio!.year}-${dataInicio!.month.toString().padLeft(2, '0')}-${dataInicio!.day.toString().padLeft(2, '0')}';
+    }
+    if (dataFim != null) {
+      dataFimStr =
+          '${dataFim!.year}-${dataFim!.month.toString().padLeft(2, '0')}-${dataFim!.day.toString().padLeft(2, '0')}';
+    }
+
+    final entrevista = <String, dynamic>{
+      'destino': destinoCtrl.text.trim(),
+      if (dataInicioStr != null) 'dataInicio': dataInicioStr,
+      if (dataFimStr != null) 'dataFim': dataFimStr,
+      if (orcamentoCtrl.text.trim().isNotEmpty)
+        'orcamento': orcamentoCtrl.text.trim(),
+      'meioTransporte': meioTransporte,
+      if (preferenciasCtrl.text.trim().isNotEmpty)
+        'preferencias': preferenciasCtrl.text.trim(),
+    };
+
+    await _enviarPlanejamento(entrevista);
+  }
+
   Widget _buildBolha(MensagemChat m) {
     final isUsuario = m.isUsuario;
     return Align(
@@ -201,7 +465,9 @@ class _ChatScreenState extends State<ChatScreen> {
           const Text(
             'Pergunte sobre seus gastos, orçamento da viagem ou peça dicas '
             'de economia. Por exemplo: "quanto já gastei hoje?" ou '
-            '"como posso economizar mais nessa viagem?"',
+            '"como posso economizar mais nessa viagem?" Ou toque em '
+            '"Planejar viagem com IA", logo acima, para receber um roteiro '
+            'com estimativa de custos.',
             textAlign: TextAlign.center,
             style: TextStyle(color: kTextGrey, fontSize: 13),
           ),
@@ -240,6 +506,21 @@ class _ChatScreenState extends State<ChatScreen> {
                   )
                 : Column(
                     children: [
+                      Container(
+                        width: double.infinity,
+                        color: Colors.white,
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                        child: OutlinedButton.icon(
+                          onPressed: _enviando ? null : _abrirPlanejamento,
+                          icon: const Icon(Icons.route, size: 18),
+                          label: const Text('Planejar viagem com IA'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 42),
+                            side: const BorderSide(color: kPrimaryColor),
+                            foregroundColor: kPrimaryColor,
+                          ),
+                        ),
+                      ),
                       Expanded(
                         child: ListView.builder(
                           controller: _scrollController,

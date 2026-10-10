@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/mensagem_chat.dart';
 
-/// Assistente de IA (RF33–RF40).
+/// Agente de vIAgens (RF33–RF47).
 ///
 /// O app NUNCA guarda nem chama a API de IA diretamente. Ele manda a
 /// pergunta e o histórico recente para a Edge Function "chat-ia" do
@@ -96,6 +96,71 @@ class ChatService {
       final erro = (res.data is Map && res.data['erro'] != null)
           ? res.data['erro'] as String
           : 'Não foi possível falar com o assistente agora. Tente novamente.';
+      throw Exception(erro);
+    }
+
+    final textoResposta = res.data['resposta'] as String;
+    return _salvarMensagem(conversaId, 'assistant', textoResposta);
+  }
+
+  /// Monta o texto de resumo da entrevista de planejamento, salvo como a
+  /// "pergunta" do usuário no histórico — assim o pedido de roteiro
+  /// aparece no chat como uma mensagem normal, igual a qualquer outra.
+  String resumirEntrevista(Map<String, dynamic> entrevista) {
+    final partes = <String>[
+      'Quero planejar uma viagem para ${entrevista['destino']}.'
+    ];
+    if (entrevista['dataInicio'] != null && entrevista['dataFim'] != null) {
+      partes.add(
+          'Período: ${entrevista['dataInicio']} a ${entrevista['dataFim']}.');
+    }
+    if (entrevista['orcamento'] != null &&
+        entrevista['orcamento'].toString().isNotEmpty) {
+      partes.add('Orçamento aproximado: ${entrevista['orcamento']}.');
+    }
+    if (entrevista['meioTransporte'] != null) {
+      partes.add('Meio de transporte: ${entrevista['meioTransporte']}.');
+    }
+    if (entrevista['preferencias'] != null &&
+        (entrevista['preferencias'] as String).trim().isNotEmpty) {
+      partes.add('Preferências: ${entrevista['preferencias']}.');
+    }
+    partes.add(
+        'Monte um roteiro com estimativa de custos e sugestões de passagem, '
+        'hospedagem e restaurantes.');
+    return partes.join(' ');
+  }
+
+  /// Planeja uma viagem nova a partir de uma entrevista (RF33–RF47,
+  /// parcial): roteiro com estimativa de custos, sugestões de passagem/
+  /// hospedagem/restaurante e, se o meio de transporte for carro, dicas
+  /// de estrada. Documentação/vistos/vacinas não fazem parte deste
+  /// recurso — seguem pendentes de validação com o orientador, como o
+  /// resto do Agente de vIAgens completo.
+  ///
+  /// Como no chat comum, o app nunca fala direto com o Gemini: tudo
+  /// passa pela mesma Edge Function chat-ia, só que com modo:'roteiro'.
+  Future<MensagemChat> planejarViagem({
+    required String conversaId,
+    required Map<String, dynamic> entrevista,
+  }) async {
+    final resumo = resumirEntrevista(entrevista);
+    await _salvarMensagem(conversaId, 'user', resumo);
+
+    final corpo = <String, dynamic>{
+      'modo': 'roteiro',
+      'entrevista': entrevista,
+      'mensagens': [
+        {'papel': 'user', 'conteudo': resumo},
+      ],
+    };
+
+    final res = await _client.functions.invoke('chat-ia', body: corpo);
+
+    if (res.status != 200 || res.data == null || res.data['resposta'] == null) {
+      final erro = (res.data is Map && res.data['erro'] != null)
+          ? res.data['erro'] as String
+          : 'Não foi possível gerar o roteiro agora. Tente novamente.';
       throw Exception(erro);
     }
 
