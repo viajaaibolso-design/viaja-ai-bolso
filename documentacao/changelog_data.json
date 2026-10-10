@@ -108,5 +108,21 @@
       "Novo botão 'Ler QR Code da nota (PB)' na tela de nova despesa, abaixo das opções de Câmera/Galeria já existentes",
       "mobile_scanner ainda não foi testado em um app rodando de verdade neste ambiente (sem Flutter instalado aqui); e a Edge Function extrair-nota-qrcode também precisa ser publicada pelo painel do Supabase (mesmo processo das demais) antes de funcionar de ponta a ponta"
     ]
+  },
+  {
+    "versao": "8",
+    "data": "10/10/2026",
+    "titulo": "Remoção da leitura automática de nota fiscal e correção do botão \"+\"",
+    "resumo": "Depois de ver a leitura automática de nota fiscal (foto, v6, e QR Code, v7) funcionando de verdade na tela de despesas, o usuário decidiu reverter essa frente: o cadastro de despesa volta a ser sempre manual, com apenas um anexo de foto do comprovante simples e opcional (RF22), sem nenhuma chamada de IA nesse passo. O usuário também reportou, com uma captura de tela, que o botão \"+\" de nova despesa (um FloatingActionButton no canto inferior direito) estava sobrepondo o valor do Total mostrado na parte inferior da tela de despesas — corrigido nesta etapa, movendo o botão para um ícone discreto no canto superior direito da barra de título.",
+    "mudancas": [
+      "DespesasScreen: removidos o alternador \"Escanear nota\"/\"Digitar manualmente\", as funções aplicarResultado/escanear/escanearQrCode, os botões de Câmera/Galeria/\"Ler QR Code da nota (PB)\" e o aviso de dados reconhecidos automaticamente — o formulário de despesa volta a mostrar sempre os mesmos campos manuais (categoria, descrição, valor, data, forma de pagamento)",
+      "O anexo de comprovante (RF22, já existente desde a v4) continua disponível como botão \"Anexar/Trocar/Remover\" na seção \"Comprovante (opcional)\" do formulário — sem nenhuma IA envolvida, é só a foto escolhida da galeria/câmera sendo guardada no Supabase Storage",
+      "Removidos os arquivos lib/screens/escanear_qrcode_screen.dart, lib/services/nota_fiscal_service.dart e lib/models/resultado_extracao.dart, e as pastas das Edge Functions supabase/functions/extrair-nota e supabase/functions/extrair-nota-qrcode",
+      "Removida a dependência mobile_scanner (^7.3.0) do pubspec.yaml, já que não há mais leitura de QR Code no app",
+      "Corrigido o botão \"+\" de nova despesa: antes era um FloatingActionButton (posição padrão do Flutter, canto inferior direito), que sobrepunha a barra de \"Total\" na parte inferior da tela de despesas (bug relatado pelo usuário com captura de tela). Agora é um IconButton minimalista nas actions da AppBar, no canto superior direito, ao lado do botão de exportar (CSV) — mesmo comportamento de antes (abre o formulário de nova despesa, só aparece quando há uma viagem selecionada)",
+      "Documentação: removidas as seções 2.5 (ResultadoExtracao) e 3.5 (NotaFiscalService) do documento técnico, e atualizada a descrição da DespesasScreen (seção 4) e das pendências (seção 6) para refletir o estado atual do app",
+      "As Edge Functions extrair-nota e extrair-nota-qrcode deixaram de ser chamadas pelo app, mas continuam publicadas no painel do Supabase — removê-las do repositório não as remove de lá; quem quiser liberar esse espaço precisa excluí-las manualmente pelo painel do Supabase",
+      "Ainda não testado rodando de verdade neste ambiente (sem Flutter instalado aqui) — recomenda-se rodar 'flutter pub get' (para atualizar o lockfile após remover o mobile_scanner) e conferir o cadastro/edição de despesa e a nova posição do botão \"+\" antes da apresentação"
+    ]
   }
 ]

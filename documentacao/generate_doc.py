@@ -176,7 +176,6 @@ make_table(
         ["image_picker / image_picker_for_web", "Seleção de fotos (perfil, viagem e comprovante de despesa), enviadas ao Supabase Storage"],
         ["intl", "Suporte a internacionalização/formatação (incluído, uso pontual)"],
         ["http (v4)", "Consulta à API pública de câmbio (open.er-api.com) usada na conversão de moeda da tela inicial"],
-        ["mobile_scanner (v7)", "Leitura do QR Code da nota fiscal (NFC-e) direto pela câmera, localmente no aparelho, sem IA nesse passo"],
     ],
     [4.5 * cm, 11 * cm],
 )
@@ -290,24 +289,6 @@ make_table(
     [4.5 * cm, 3 * cm, 8 * cm],
 )
 
-h2("2.5 ResultadoExtracao (v6) — resultado_extracao.dart")
-body(
-    "Representa o resultado da leitura automática de uma nota fiscal (RF48–RF51): os dados que a IA "
-    "conseguiu reconhecer na imagem, prontos para pré-preencher o formulário de despesa."
-)
-make_table(
-    ["Campo", "Tipo", "Descrição"],
-    [
-        ["sucesso", "bool", "Se a IA conseguiu extrair os dados com confiança suficiente (RNF21)"],
-        ["estabelecimento", "String?", "Nome do local reconhecido na nota, quando identificado"],
-        ["valor", "double?", "Valor total reconhecido"],
-        ["data", "String?", "Data da compra reconhecida (AAAA-MM-DD)"],
-        ["categoria", "String?", "Categoria de despesa sugerida pela IA"],
-        ["erro", "String?", "Mensagem para exibir quando sucesso é false"],
-    ],
-    [4.5 * cm, 3 * cm, 8 * cm],
-)
-
 story.append(PageBreak())
 
 # =========================================================================
@@ -409,45 +390,6 @@ body(
     "comportamento padrão do Supabase para Edge Functions, sem necessidade de código extra."
 )
 
-h2("3.5 NotaFiscalService (v6/v7) — leitura de nota fiscal")
-body(
-    "Serviço de leitura automática de notas fiscais, com DOIS caminhos possíveis. O primeiro (v6) é por "
-    "visão computacional: o app manda a foto (em base64) para a Edge Function "
-    "<font face='Courier'>supabase/functions/extrair-nota</font>, que chama o Gemini em modo multimodal "
-    "(lê imagem e texto juntos) para reconhecer os dados. O segundo (v7, novo) é pelo QR Code impresso "
-    "na nota: a tela EscanearQrcodeScreen usa o pacote mobile_scanner para DECODIFICAR o QR localmente "
-    "no aparelho (sem IA nesse passo — isso não é 'tirar uma foto do QR e perguntar pra IA', é leitura "
-    "de código de barras de verdade, via CameraX/ML Kit no Android e AVFoundation/Vision no iOS); só o "
-    "conteúdo já decodificado (uma URL curta) é enviado à nova Edge Function "
-    "<font face='Courier'>supabase/functions/extrair-nota-qrcode</font>, que busca a página oficial de "
-    "consulta da nota no site da Receita Estadual e pede ao Gemini (modo texto, sem visão) para ler os "
-    "dados ali — uma fonte mais confiável que uma foto, por vir direto do órgão emissor. Cobertura "
-    "inicial do caminho por QR Code: somente notas emitidas na Paraíba (PB), estado de testes do "
-    "projeto; para qualquer outro estado, a função devolve um erro claro e a tela cai automaticamente "
-    "no fluxo por foto/manual, sem travar nada. As duas Edge Functions reaproveitam o mesmo secret "
-    "<font face='Courier'>GEMINI_API_KEY</font> já configurado para o assistente de IA — não é "
-    "necessário cadastrar nenhuma chave nova."
-)
-make_table(
-    ["Método / Componente", "Recurso", "Função"],
-    [
-        ["NotaFiscalService.extrair(bytes)", "Edge Function extrair-nota", "Envia a foto da nota e devolve um ResultadoExtracao"],
-        ["Edge Function extrair-nota (Deno)", "API do Gemini (multimodal)", "Analisa a imagem e devolve estabelecimento, valor, data e categoria sugerida, em JSON"],
-        ["NotaFiscalService.extrairPorQrCode (v7)", "Edge Function extrair-nota-qrcode", "Envia o conteúdo do QR Code lido e devolve um ResultadoExtracao"],
-        ["Edge Function extrair-nota-qrcode (v7, Deno)", "Consulta SEFAZ-PB + Gemini (texto)", "Busca a nota pela chave de acesso e pede ao Gemini para ler estabelecimento, valor, data e categoria do texto da página"],
-    ],
-    [5.8 * cm, 4.7 * cm, 5 * cm],
-)
-body(
-    "Para reduzir o risco de a IA \"inventar\" um valor (alucinação), o prompt (nos dois caminhos) pede "
-    "que o modelo classifique sua própria confiança na leitura (alta/média/baixa) e devolva campos como "
-    "nulo quando não tiver certeza; a Edge Function só considera a leitura bem-sucedida quando o valor "
-    "foi reconhecido e a confiança não é baixa. Quando a leitura falha ou a confiança é baixa (RNF21), a "
-    "tela simplesmente cai no preenchimento manual, sem travar o cadastro da despesa — e, no caminho por "
-    "foto, a imagem tirada continua sendo aproveitada como comprovante da despesa (RF22), mesmo que a "
-    "extração não tenha funcionado."
-)
-
 story.append(PageBreak())
 
 # =========================================================================
@@ -478,14 +420,15 @@ screens = [
      "viagem ativa do dashboard (ícone de estrela, RF14, v4), e botão para cadastrar uma nova."),
     ("NovaViagemScreen", "Formulário de criação/edição de viagem: foto (câmera/galeria), nome, "
      "destino, datas de início e fim, orçamento e moeda local do destino (RF52, v4)."),
-    ("DespesasScreen", "Seleciona uma viagem e lista suas despesas, com filtro por categoria. Ao "
-     "cadastrar uma despesa nova, o usuário escolhe entre escanear uma nota fiscal por foto (a imagem é "
-     "analisada por IA para pré-preencher estabelecimento, valor, data e categoria — RF48/RF49, v6 — "
-     "sempre revisável antes de salvar, RF50), ler o QR Code da nota (v7, mesmo pré-preenchimento, hoje "
-     "só para notas da Paraíba) ou preencher manualmente (RF51), sem exigir nota fiscal. Permite editar "
-     "e excluir despesas por um formulário em painel deslizante, incluindo comprovante anexado (RF22, "
-     "v4 — a própria foto da nota escaneada já vira o comprovante). Mostra o total das despesas "
-     "filtradas e permite exportá-las em CSV (RF23, v4, via link do Supabase Storage)."),
+    ("DespesasScreen", "Seleciona uma viagem e lista suas despesas, com filtro por categoria. O "
+     "cadastro de despesa (painel deslizante) é sempre preenchido manualmente, com um anexo de foto do "
+     "comprovante simples e opcional (RF22, v4/v8) — sem nenhuma leitura automática por IA; a leitura "
+     "automática de nota fiscal por foto (v6) e por QR Code (v7) foi removida na v8, por decisão do "
+     "usuário. Permite editar e excluir despesas pelo mesmo formulário. Mostra o total das despesas "
+     "filtradas numa barra fixa na parte inferior e permite exportá-las em CSV (RF23, v4, via link do "
+     "Supabase Storage). O botão de nova despesa (\"+\") fica como ícone discreto no canto superior "
+     "direito da barra de título, ao lado do botão de exportar (v8) — antes era um botão flutuante que "
+     "sobrepunha a barra do Total."),
     ("PerfilScreen", "Exibe e permite editar os dados do usuário (foto, nome, e-mail), alterar a "
      "senha, escolher a moeda padrão (RF29, v4) e encerrar a sessão (logoff). Dá acesso às novas telas "
      "de Configurações, Sobre o app e Suporte (RF30/RF31/RF32, v4)."),
@@ -571,19 +514,26 @@ bullets([
     "a nota direto no site da Receita e usa o Gemini só para ler o texto da página — cobertura inicial "
     "limitada a notas da Paraíba (PB), com fallback automático para o fluxo por foto/manual nos demais "
     "casos — ver seção 7, versão 7.",
+    "<b>Resolvido na v8:</b> removida a leitura automática de nota fiscal (os dois caminhos, por foto "
+    "da v6 e por QR Code da v7) — depois de ver a função funcionando de verdade na tela de despesas, o "
+    "usuário decidiu simplificar o fluxo de cadastro: agora é sempre manual, com um anexo de foto do "
+    "comprovante simples e opcional (RF22), sem nenhuma chamada de IA nesse passo. Também foi corrigido "
+    "o botão \"+\" de nova despesa, que como FloatingActionButton ficava sobrepondo o valor do Total na "
+    "parte inferior da tela — ver seção 7, versão 8.",
     "<b>Pendente de validação com o orientador:</b> o Agente de vIAgens completo (RF33–RF47) — "
     "planejamento de roteiro, preços de passagem/hospedagem/restaurante, apoio a viagens de carro e "
     "documentação/vacinas — ainda depende de validação com o orientador (e, se possível, com usuários "
     "reais) antes de ser implementado, conforme o próprio levantamento de requisitos pede.",
-    "<b>Pendente do lado do usuário:</b> tanto o assistente de IA (v5) quanto a leitura de nota fiscal "
-    "(v6) só funcionam de verdade depois que a Edge Function correspondente for publicada no Supabase e "
-    "o secret GEMINI_API_KEY estiver configurado com uma chave criada em aistudio.google.com — sem "
-    "isso, as telas abrem normalmente, mas a IA não responde.",
+    "<b>Pendente do lado do usuário:</b> o assistente de IA (v5) só funciona de verdade depois que a "
+    "Edge Function chat-ia for publicada no Supabase e o secret GEMINI_API_KEY estiver configurado com "
+    "uma chave criada em aistudio.google.com — sem isso, a tela abre normalmente, mas a IA não "
+    "responde. As Edge Functions extrair-nota e extrair-nota-qrcode (v6/v7), da função de leitura de "
+    "nota fiscal removida na v8, deixaram de ser chamadas pelo app, mas continuam publicadas no painel "
+    "do Supabase até serem excluídas manualmente por ali, se o usuário quiser liberar esse espaço.",
     "<b>Parcialmente testado:</b> o app já foi executado de verdade pela primeira vez fora deste ambiente — "
     "cadastro de usuário funcionou e o e-mail de confirmação do Supabase chegou normalmente. Login, "
     "upload de foto, CRUD completo de viagens/despesas, as novidades da v4 (câmbio, viagem ativa, "
-    "comprovante, exportação), o assistente de IA (v5) e a leitura de nota fiscal (v6) ainda não foram "
-    "confirmados em uso real.",
+    "comprovante, exportação) e o assistente de IA (v5) ainda não foram confirmados em uso real.",
     "Por padrão, o Supabase exige confirmação de e-mail para novas contas — vale revisar essa "
     "configuração no painel do projeto (Authentication) para decidir se isso é desejável na demonstração.",
     "Tratamento de erros de rede ainda é genérico (mensagem fixa) na maior parte das telas, sem "
