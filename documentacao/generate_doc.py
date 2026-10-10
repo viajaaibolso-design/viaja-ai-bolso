@@ -544,6 +544,13 @@ bullets([
     "viagens de carro — tudo reaproveitando a mesma Edge Function/chave de IA do chat (modo \"roteiro\" "
     "em vez de \"chat\"), sempre como estimativa da IA, sem integrar nenhuma API real de preços — ver "
     "seção 7, versão 9.",
+    "<b>Resolvido na v10:</b> corrigido um bug real na exportação de despesas (RF23) — o CSV era "
+    "montado com <font face='Courier'>codeUnits</font> em vez de UTF-8 de verdade, o que corrompia "
+    "qualquer caractere fora do alfabeto latino básico (ex.: emoji numa descrição de despesa) na hora "
+    "de virar bytes para o upload. Passou a usar <font face='Courier'>utf8.encode</font> com um BOM no "
+    "início do arquivo, pra também evitar acentos errados ao abrir no Excel do Windows. A mensagem de "
+    "erro da exportação, que antes era sempre genérica (\"Erro ao gerar exportação\", sem detalhe "
+    "nenhum), agora mostra o motivo real devolvido pelo Supabase — ver seção 7, versão 10.",
     "<b>Pendente de validação com o orientador:</b> dentro do Agente de vIAgens completo (RF33–RF47), "
     "só falta a orientação sobre documentação e vacinas — ainda depende de validação com o orientador "
     "(e, se possível, com usuários reais) antes de ser implementada, conforme o próprio levantamento de "
@@ -563,8 +570,9 @@ bullets([
     "Por padrão, o Supabase exige confirmação de e-mail para novas contas — vale revisar essa "
     "configuração no painel do projeto (Authentication) para decidir se isso é desejável na demonstração.",
     "Tratamento de erros de rede ainda é genérico (mensagem fixa) na maior parte das telas, sem "
-    "diferenciar tipos de erro — exceção feita à conversão de câmbio, que já trata indisponibilidade "
-    "da API separadamente (RNF17).",
+    "diferenciar tipos de erro — exceções feitas à conversão de câmbio, que já trata indisponibilidade "
+    "da API separadamente (RNF17), e à exportação de despesas (RF23, v10), que agora mostra o erro real "
+    "devolvido pelo Supabase em vez de uma mensagem fixa.",
     "RF23 (exportação) foi implementada em CSV, não em PDF — suficiente para abrir em Excel/Sheets, mas "
     "vale registrar essa escolha caso a banca pergunte especificamente por PDF.",
     "Não há persistência local (offline) dos dados de viagens/despesas — o app depende de conexão com "

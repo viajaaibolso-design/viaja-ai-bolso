@@ -140,5 +140,19 @@
       "Documentação: seção 3.4 (ChatService) atualizada com o novo modo e método, descrição da ChatScreen (seção 4) atualizada, nota sobre a renumeração do Agente de IA (seção 6) e pendências atualizadas para refletir o que já foi implementado nesta etapa",
       "Ainda não testado rodando de verdade neste ambiente (sem Flutter instalado aqui) — recomenda-se testar o botão 'Planejar viagem com IA' com destinos reais antes da apresentação, inclusive o caminho de meio de transporte 'Carro' (que deve trazer a seção extra de dicas de estrada)"
     ]
+  },
+  {
+    "versao": "10",
+    "data": "10/10/2026",
+    "titulo": "Correção da exportação de despesas (RF23) — bug de codificação e erro genérico",
+    "resumo": "O usuário perguntou para que serve a exportação de despesas e relatou que ela estava dando erro. Lendo o código, encontrei um bug real: o CSV era convertido para bytes usando codeUnits (código UTF-16 de cada caractere) em vez de UTF-8 de verdade, o que corrompe qualquer caractere fora do alfabeto latino básico — por exemplo, um emoji digitado na descrição de uma despesa — na hora de enviar o arquivo para o Supabase Storage. Além disso, o aviso de erro mostrado na tela era sempre o mesmo texto genérico (\"Erro ao gerar exportação\"), sem nenhum detalhe do motivo real, então não dava para saber se o problema era esse ou outra coisa (ex.: bucket/política de Storage no Supabase) só olhando o app.",
+    "mudancas": [
+      "DespesasScreen._exportar(): o CSV agora é convertido para bytes com utf8.encode(csv) (import 'dart:convert') em vez de csv.codeUnits, evitando corromper caracteres fora do Latin-1 básico",
+      "Adicionado um BOM (marca de ordem de bytes, 0xEF 0xBB 0xBF) no início do arquivo CSV, para o Excel no Windows reconhecer a codificação UTF-8 e exibir os acentos corretamente ao abrir o arquivo exportado",
+      "A mensagem de erro de exportação deixou de ser um texto fixo (\"Erro ao gerar exportação\") e agora mostra o motivo real devolvido pela exceção (ex.: erro do Supabase Storage), além de logar o erro completo no console, para facilitar o diagnóstico de qualquer problema remanescente",
+      "O que a função faz, para registro: gera um CSV (Data, Descrição, Categoria, Forma de pagamento, Valor e uma linha de Total) a partir das despesas filtradas na tela, envia esse arquivo para o Supabase Storage e mostra um link para copiar/baixar — pensado para o caso de uso de 'prestação de contas' que dá nome ao app",
+      "Documentação: seção 6 (pendências) atualizada — a exportação de despesas deixou de ser uma das telas com tratamento de erro genérico",
+      "Ainda não testado rodando de verdade neste ambiente (sem Flutter instalado aqui) — recomenda-se testar a exportação com uma despesa cuja descrição tenha emoji ou acentos antes da apresentação, e, se o erro genérico ainda aparecer (agora com detalhe), investigar a causa real (ex.: bucket/política 'fotos' no Supabase) a partir da mensagem"
+    ]
   }
 ]
