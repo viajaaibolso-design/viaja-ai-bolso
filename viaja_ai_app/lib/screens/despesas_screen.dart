@@ -8,9 +8,6 @@ import '../models/despesa.dart';
 import '../models/viagem.dart';
 import '../services/viagem_service.dart';
 import '../services/storage_service.dart';
-import '../services/nota_fiscal_service.dart';
-import 'escanear_qrcode_screen.dart';
-import '../models/resultado_extracao.dart';
 import '../utils/moedas.dart';
 import '../utils/exportacao.dart';
 
@@ -187,17 +184,11 @@ class _DespesasScreenState extends State<DespesasScreen> {
         ? DateTime.tryParse(despesa!.data) ?? DateTime.now()
         : DateTime.now();
 
-    // RF22 — comprovante anexado à despesa.
+    // RF22 — comprovante anexado à despesa (simples foto opcional, sem
+    // leitura automática por IA — o usuário só guarda a imagem da nota).
     String? comprovanteUrlExistente = despesa?.fotoUrl;
     Uint8List? comprovanteBytes;
     bool comprovanteAlterado = false;
-
-    // RF48–RF51 — leitura automática de nota fiscal por visão
-    // computacional. Só faz sentido numa despesa nova (não ao editar).
-    String modoEntrada = despesa == null ? 'escanear' : 'manual';
-    bool extraindo = false;
-    String? avisoExtracao;
-    Color corAvisoExtracao = kPrimaryLight;
 
     final formas = [
       'Cartão de crédito',
@@ -214,79 +205,6 @@ class _DespesasScreenState extends State<DespesasScreen> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setStateModal) {
-          void aplicarResultado(ResultadoExtracao resultado) {
-            setStateModal(() {
-              extraindo = false;
-              if (resultado.sucesso) {
-                if (resultado.estabelecimento != null &&
-                    resultado.estabelecimento!.isNotEmpty) {
-                  descricaoCtrl.text = resultado.estabelecimento!;
-                }
-                if (resultado.valor != null) {
-                  valorCtrl.text = resultado.valor!.toStringAsFixed(2);
-                }
-                if (resultado.data != null) {
-                  final data = DateTime.tryParse(resultado.data!);
-                  if (data != null) dataSelecionada = data;
-                }
-                if (resultado.categoria != null) {
-                  final match = _categorias
-                      .where((c) =>
-                          c.nome.toLowerCase() ==
-                          resultado.categoria!.toLowerCase())
-                      .toList();
-                  if (match.isNotEmpty) categoriaSelecionada = match.first;
-                }
-                avisoExtracao =
-                    'Dados reconhecidos automaticamente. Confira antes de salvar.';
-                corAvisoExtracao = kPrimaryLight;
-              } else {
-                avisoExtracao = resultado.erro ??
-                    'Não conseguimos ler os dados da nota. Preencha manualmente.';
-                corAvisoExtracao = kAlertRust;
-              }
-            });
-          }
-
-          Future<void> escanear(ImageSource fonte) async {
-            final picker = ImagePicker();
-            final arquivo = await picker.pickImage(
-              source: fonte,
-              maxWidth: 1000,
-              maxHeight: 1000,
-              imageQuality: 70,
-            );
-            if (arquivo == null) return;
-            final bytes = await arquivo.readAsBytes();
-            setStateModal(() {
-              extraindo = true;
-              avisoExtracao = null;
-            });
-            final resultado = await NotaFiscalService().extrair(bytes);
-            comprovanteBytes = bytes;
-            comprovanteAlterado = true;
-            aplicarResultado(resultado);
-          }
-
-          // RF48–RF51 (v7) — leitura da nota pelo QR Code impresso nela
-          // (NFC-e), em vez de foto. Cobertura inicial: notas da Paraíba
-          // (PB); fora isso, a Edge Function já devolve um erro claro e
-          // aplicarResultado() cai no aviso de preenchimento manual,
-          // mantendo o mesmo comportamento de fallback do fluxo por foto.
-          Future<void> escanearQrCode() async {
-            final qrContent = await Navigator.of(ctx).push<String>(
-              MaterialPageRoute(builder: (_) => const EscanearQrcodeScreen()),
-            );
-            if (qrContent == null) return;
-            setStateModal(() {
-              extraindo = true;
-              avisoExtracao = null;
-            });
-            final resultado =
-                await NotaFiscalService().extrairPorQrCode(qrContent);
-            aplicarResultado(resultado);
-          }
-
           return Padding(
           padding: EdgeInsets.only(
               bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -304,166 +222,6 @@ class _DespesasScreenState extends State<DespesasScreen> {
                       fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-
-                if (despesa == null) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () =>
-                              setStateModal(() => modoEntrada = 'escanear'),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: modoEntrada == 'escanear'
-                                  ? kPrimaryColor
-                                  : kBackground,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: modoEntrada == 'escanear'
-                                      ? kPrimaryColor
-                                      : Colors.grey[300]!),
-                            ),
-                            child: Text('📷 Escanear nota',
-                                style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: modoEntrada == 'escanear'
-                                        ? Colors.white
-                                        : kTextGrey)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () =>
-                              setStateModal(() => modoEntrada = 'manual'),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: modoEntrada == 'manual'
-                                  ? kPrimaryColor
-                                  : kBackground,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: modoEntrada == 'manual'
-                                      ? kPrimaryColor
-                                      : Colors.grey[300]!),
-                            ),
-                            child: Text('✍️ Digitar manualmente',
-                                style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: modoEntrada == 'manual'
-                                        ? Colors.white
-                                        : kTextGrey)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  if (modoEntrada == 'escanear') ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 22, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: kPrimaryLight.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: kPrimaryLight.withValues(alpha: 0.5),
-                            width: 1.5),
-                      ),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.receipt_long,
-                              size: 30, color: kPrimaryLight),
-                          const SizedBox(height: 8),
-                          const Text('Aponte a câmera para a nota fiscal',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          const Text('ou selecione uma imagem da galeria',
-                              textAlign: TextAlign.center,
-                              style:
-                                  TextStyle(fontSize: 11.5, color: kTextGrey)),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: extraindo
-                                      ? null
-                                      : () => escanear(ImageSource.camera),
-                                  icon: const Icon(Icons.camera_alt, size: 16),
-                                  label: const Text('Câmera'),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: extraindo
-                                      ? null
-                                      : () => escanear(ImageSource.gallery),
-                                  icon: const Icon(Icons.photo_library,
-                                      size: 16),
-                                  label: const Text('Galeria'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: extraindo ? null : escanearQrCode,
-                              icon: const Icon(Icons.qr_code_scanner,
-                                  size: 16),
-                              label: const Text('Ler QR Code da nota (PB)'),
-                            ),
-                          ),
-                          if (extraindo) ...[
-                            const SizedBox(height: 12),
-                            const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2, color: kPrimaryColor)),
-                                SizedBox(width: 8),
-                                Text('Analisando nota fiscal...',
-                                    style: TextStyle(
-                                        fontSize: 12, color: kTextGrey)),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  if (avisoExtracao != null)
-                    Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 14),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: corAvisoExtracao.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(avisoExtracao!,
-                          style:
-                              TextStyle(fontSize: 12, color: corAvisoExtracao)),
-                    ),
-                ],
 
                 // Seletor de categoria
                 const Text('Categoria',
@@ -587,7 +345,8 @@ class _DespesasScreenState extends State<DespesasScreen> {
                 ),
                 const SizedBox(height: 14),
 
-                // Comprovante (RF22)
+                // Comprovante (RF22) — anexo simples e opcional, sem IA:
+                // serve só para o usuário guardar a foto da nota fiscal.
                 const Text('Comprovante (opcional)',
                     style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
@@ -797,6 +556,15 @@ class _DespesasScreenState extends State<DespesasScreen> {
             tooltip: 'Exportar despesas (CSV)',
             onPressed: _exportando ? null : _exportar,
           ),
+          // "+" minimalista no canto superior direito — antes era um
+          // FloatingActionButton flutuante, que sobrepunha a barra de
+          // Total na parte inferior da tela.
+          if (_viagemSelecionada != null)
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              tooltip: 'Nova despesa',
+              onPressed: () => _abrirFormulario(),
+            ),
         ],
       ),
       body: _loading
@@ -989,13 +757,6 @@ class _DespesasScreenState extends State<DespesasScreen> {
                 ),
               ],
             ),
-      floatingActionButton: _viagemSelecionada != null
-          ? FloatingActionButton(
-              onPressed: () => _abrirFormulario(),
-              backgroundColor: kPrimaryColor,
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
     );
   }
 }
