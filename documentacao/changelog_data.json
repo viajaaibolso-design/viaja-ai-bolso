@@ -124,5 +124,21 @@
       "As Edge Functions extrair-nota e extrair-nota-qrcode deixaram de ser chamadas pelo app, mas continuam publicadas no painel do Supabase — removê-las do repositório não as remove de lá; quem quiser liberar esse espaço precisa excluí-las manualmente pelo painel do Supabase",
       "Ainda não testado rodando de verdade neste ambiente (sem Flutter instalado aqui) — recomenda-se rodar 'flutter pub get' (para atualizar o lockfile após remover o mobile_scanner) e conferir o cadastro/edição de despesa e a nova posição do botão \"+\" antes da apresentação"
     ]
+  },
+  {
+    "versao": "9",
+    "data": "10/10/2026",
+    "titulo": "Parte do Agente de vIAgens completo: roteiro, passagem/hospedagem/restaurante e apoio a carro (RF33-RF47)",
+    "resumo": "O usuário perguntou o que o Agente de vIAgens (tela de chat) realmente consegue fazer hoje, e a resposta deixou claro que era só um chat de perguntas/respostas sobre a viagem ativa — nada do planejamento mais completo (roteiro, passagem/hospedagem/restaurante, apoio a carro, documentação/vacinas) que o nome sugere e que o levantamento de requisitos descreve como RF33-RF47. Ao ser perguntado se dava para adicionar essa parte, o usuário escolheu avançar com roteiro, indicação de passagem/hospedagem/restaurante e apoio a viagens de carro (deixando documentação/vacinas de fora por enquanto), e decidiu que as sugestões de passagem/hospedagem/restaurante devem ser só estimativas da própria IA, sem contratar nenhuma API paga de viagens — mais simples e gratuito para o escopo do TCC, ainda que isso signifique preços/opções aproximados, não reais.",
+    "mudancas": [
+      "Novo botão \"Planejar viagem com IA\" na tela do Agente de vIAgens, logo abaixo da barra de título: abre um formulário de entrevista (destino, data de início/fim, orçamento aproximado, meio de transporte, preferências), pré-preenchido com os dados da viagem ativa quando disponíveis",
+      "Edge Function chat-ia ganhou um segundo modo, 'roteiro' (o modo padrão, sem esse campo, continua sendo o chat de sempre) — mesma função, mesmo secret GEMINI_API_KEY, só muda o prompt enviado ao Gemini",
+      "No modo roteiro, o prompt pede um roteiro dia a dia, estimativa de custos por categoria (comparando com o orçamento informado), sugestões de passagem, de hospedagem e de restaurantes (faixas de preço aproximadas) e, quando o meio de transporte informado é carro, dicas de estrada (trecho, pedágio estimado, pontos de parada, documentação do veículo)",
+      "O prompt instrui explicitamente o Gemini a nunca inventar nomes reais de companhias aéreas, hotéis ou restaurantes (só tipos/categorias) e a deixar claro que os valores são estimativas, sem consulta a preços reais — não há nenhuma integração com API de passagem/hospedagem paga",
+      "ChatService ganhou os métodos resumirEntrevista(...) (monta o texto da entrevista salvo como a 'pergunta' do usuário no histórico) e planejarViagem(...) (aciona o modo roteiro e salva a resposta) — reaproveita a mesma tabela de mensagens e a mesma persistência do chat comum, sem nenhuma tabela nova no banco",
+      "Documentação/vistos/vacinas (também parte do RF33-RF47) ficou de fora desta etapa, por escolha do usuário, e segue pendente de validação com o orientador junto com o resto do Agente de vIAgens completo",
+      "Documentação: seção 3.4 (ChatService) atualizada com o novo modo e método, descrição da ChatScreen (seção 4) atualizada, nota sobre a renumeração do Agente de IA (seção 6) e pendências atualizadas para refletir o que já foi implementado nesta etapa",
+      "Ainda não testado rodando de verdade neste ambiente (sem Flutter instalado aqui) — recomenda-se testar o botão 'Planejar viagem com IA' com destinos reais antes da apresentação, inclusive o caminho de meio de transporte 'Carro' (que deve trazer a seção extra de dicas de estrada)"
+    ]
   }
 ]

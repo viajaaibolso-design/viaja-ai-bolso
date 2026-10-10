@@ -378,16 +378,30 @@ make_table(
     [
         ["ChatService.obterOuCriarConversa()", "tabela conversas", "Recupera a conversa mais recente do usuário ou cria uma nova"],
         ["ChatService.listarMensagens(...)", "tabela mensagens", "Carrega o histórico salvo ao abrir a tela"],
-        ["ChatService.enviarMensagem(...)", "tabela mensagens + Edge Function chat-ia", "Salva a pergunta, aciona a Edge Function com o histórico e o contexto da viagem ativa, e salva a resposta"],
-        ["Edge Function chat-ia (Deno)", "API do Gemini (Google AI Studio)", "Único ponto do sistema que guarda a chave da API; monta o prompt com os dados da viagem ativa e devolve a resposta gerada"],
+        ["ChatService.enviarMensagem(...)", "tabela mensagens + Edge Function chat-ia (modo chat)", "Salva a pergunta, aciona a Edge Function com o histórico e o contexto da viagem ativa, e salva a resposta"],
+        ["ChatService.planejarViagem(...) (v9)", "tabela mensagens + Edge Function chat-ia (modo roteiro)", "Salva o resumo da entrevista de planejamento como pergunta, aciona a Edge Function pedindo um roteiro, e salva a resposta"],
+        ["Edge Function chat-ia (Deno)", "API do Gemini (Google AI Studio)", "Único ponto do sistema que guarda a chave da API; monta o prompt (modo chat ou roteiro) e devolve a resposta gerada"],
     ],
     [5.8 * cm, 4.7 * cm, 5 * cm],
 )
 body(
-    "O prompt enviado ao Gemini inclui um resumo da viagem ativa do usuário (nome, destino, orçamento, "
-    "total gasto, percentual do orçamento e últimas despesas), permitindo respostas contextualizadas "
-    "(ex.: \"quanto já gastei hoje?\"). Apenas usuários autenticados conseguem acionar a função — "
-    "comportamento padrão do Supabase para Edge Functions, sem necessidade de código extra."
+    "No modo chat (padrão), o prompt enviado ao Gemini inclui um resumo da viagem ativa do usuário "
+    "(nome, destino, orçamento, total gasto, percentual do orçamento e últimas despesas), permitindo "
+    "respostas contextualizadas (ex.: \"quanto já gastei hoje?\"). Apenas usuários autenticados "
+    "conseguem acionar a função — comportamento padrão do Supabase para Edge Functions, sem "
+    "necessidade de código extra."
+)
+body(
+    "<b>Modo roteiro (v9):</b> quando o usuário preenche a entrevista de planejamento (destino, datas, "
+    "orçamento, meio de transporte e preferências) na tela do Agente de vIAgens, a mesma Edge Function "
+    "chat-ia é chamada com <font face='Courier'>modo:'roteiro'</font> e esses dados, mas com um prompt "
+    "diferente: pede ao Gemini um roteiro dia a dia, estimativa de custos por categoria, sugestões de "
+    "passagem/hospedagem/restaurante (faixas de preço aproximadas, nunca marcas ou preços reais) e, se "
+    "o meio de transporte for carro, dicas de estrada (trecho, pedágio estimado, pontos de parada, "
+    "documentação do veículo). O prompt instrui o modelo a deixar claro que tudo é estimativa — não há "
+    "consulta a nenhuma API de passagem/hospedagem real, por decisão do usuário (ver seção 6). A "
+    "resposta entra no histórico da conversa como uma mensagem do assistente, igual a qualquer resposta "
+    "do modo chat."
 )
 
 story.append(PageBreak())
@@ -438,14 +452,17 @@ screens = [
     ("SuporteScreen (v4)", "Canal de contato (e-mail copiável) e perguntas frequentes (RF32)."),
     ("TermosScreen (v4)", "Conteúdo real dos Termos de Uso e Política de Privacidade, atendendo à LGPD "
      "(RF07/RNF14) — antes era só um texto estático sem tela própria."),
-    ("ChatScreen (v5/v6)", "Tela do agente de IA — renomeada nesta etapa (v6) de \"Assistente de IA\" "
-     "para \"Agente de vIAgens\" (título da tela, mensagem de boas-vindas e item da barra de navegação), "
-     "para já alinhar o nome com a nova terminologia do levantamento de requisitos. A função por trás "
-     "continua sendo a da v5 — chat simples de perguntas e respostas — não o Agente de vIAgens completo "
-     "(ver nota sobre a renumeração desse recurso na seção 6). Balões de mensagem (usuário à direita, "
-     "agente à esquerda), indicador de \"digitando...\" enquanto aguarda a resposta, mensagem de "
-     "boas-vindas explicando o que perguntar, e histórico persistido no banco (recarregado toda vez que "
-     "a tela é aberta)."),
+    ("ChatScreen (v5/v6/v9)", "Tela do Agente de vIAgens — renomeada na v6 de \"Assistente de IA\" "
+     "para \"Agente de vIAgens\", já alinhada com a terminologia do levantamento de requisitos. Tem "
+     "dois modos: o chat livre de perguntas e respostas sobre a viagem ativa (v5), e, desde a v9, o "
+     "botão \"Planejar viagem com IA\" (logo abaixo da barra de título), que abre um formulário de "
+     "entrevista (destino, datas, orçamento, meio de transporte, preferências) e devolve, como uma "
+     "mensagem do agente no próprio chat, um roteiro dia a dia com estimativa de custos e sugestões de "
+     "passagem/hospedagem/restaurante — e dicas de estrada, se o meio de transporte for carro. Balões "
+     "de mensagem (usuário à direita, agente à esquerda), indicador de \"digitando...\" enquanto "
+     "aguarda a resposta, e histórico persistido no banco (recarregado toda vez que a tela é aberta). "
+     "Ainda não é o Agente de vIAgens completo (RF33–RF47) — documentação/vistos/vacinas e integração "
+     "com APIs reais de passagem/hospedagem seguem fora do escopo (ver seção 6)."),
 ]
 
 for name, desc in screens:
@@ -484,16 +501,17 @@ body(
 )
 body(
     "<b>Nota sobre a renumeração dos requisitos do Agente de IA:</b> o levantamento de requisitos foi "
-    "atualizado entre a v5 e a v6 deste documento, e a numeração RF33–RF40 (usada nas versões 5 deste "
+    "atualizado entre a v5 e a v6 deste documento, e a numeração RF33–RF40 (usada na versão 5 deste "
     "documento) mudou de significado. No levantamento atual, RF33–RF47 correspondem ao <b>Agente de "
     "vIAgens</b> — um consultor de viagens completo (entrevista prévia, roteiro com gastos estimados, "
     "indicação de passagens/hospedagem/restaurantes, apoio a trajetos de carro e orientação sobre "
-    "documentação e vacinas), bem mais amplo do que o assistente implementado na v5. O ChatScreen/"
-    "ChatService da v5 continuam no ar e funcionando como um assistente de perguntas e respostas sobre a "
-    "viagem ativa — uma primeira versão simplificada — mas não devem ser confundidos com o Agente de "
-    "vIAgens completo, cujo desenho detalhado (inclusive a decisão entre usar só a IA para estimativas "
-    "ou integrar APIs reais de viagem) ainda depende de validação com o orientador, conforme o próprio "
-    "levantamento exige para esse bloco de requisitos."
+    "documentação e vacinas). Na v9, o usuário decidiu avançar parte desse bloco sem esperar a validação "
+    "completa com o orientador: entrevista prévia, roteiro com gastos estimados, sugestões de passagem/"
+    "hospedagem/restaurante e apoio a viagens de carro já estão implementados (seção 3.4), sempre como "
+    "estimativa da própria IA — a decisão entre usar só a IA ou integrar APIs reais de viagem (preços "
+    "reais de passagem/hospedagem) foi resolvida a favor de usar só a IA, por ser mais simples e "
+    "gratuito para o escopo do TCC. Documentação/vistos/vacinas ainda não foi implementada e continua "
+    "dependendo de validação com o orientador, assim como qualquer evolução para dados reais de preço."
 )
 bullets([
     "<b>Resolvido na v2:</b> o backend deixou de ser um servidor fixo em IP local — agora é o Supabase, "
@@ -520,10 +538,17 @@ bullets([
     "comprovante simples e opcional (RF22), sem nenhuma chamada de IA nesse passo. Também foi corrigido "
     "o botão \"+\" de nova despesa, que como FloatingActionButton ficava sobrepondo o valor do Total na "
     "parte inferior da tela — ver seção 7, versão 8.",
-    "<b>Pendente de validação com o orientador:</b> o Agente de vIAgens completo (RF33–RF47) — "
-    "planejamento de roteiro, preços de passagem/hospedagem/restaurante, apoio a viagens de carro e "
-    "documentação/vacinas — ainda depende de validação com o orientador (e, se possível, com usuários "
-    "reais) antes de ser implementado, conforme o próprio levantamento de requisitos pede.",
+    "<b>Resolvido na v9:</b> parte do Agente de vIAgens completo (RF33–RF47) avançada sem esperar a "
+    "validação formal com o orientador, por decisão do usuário: entrevista prévia de planejamento, "
+    "roteiro dia a dia com estimativa de custos, sugestões de passagem/hospedagem/restaurante e apoio a "
+    "viagens de carro — tudo reaproveitando a mesma Edge Function/chave de IA do chat (modo \"roteiro\" "
+    "em vez de \"chat\"), sempre como estimativa da IA, sem integrar nenhuma API real de preços — ver "
+    "seção 7, versão 9.",
+    "<b>Pendente de validação com o orientador:</b> dentro do Agente de vIAgens completo (RF33–RF47), "
+    "só falta a orientação sobre documentação e vacinas — ainda depende de validação com o orientador "
+    "(e, se possível, com usuários reais) antes de ser implementada, conforme o próprio levantamento de "
+    "requisitos pede. Uma eventual evolução para preços reais de passagem/hospedagem (em vez de "
+    "estimativa da IA) também dependeria dessa validação, por envolver contratar uma API paga.",
     "<b>Pendente do lado do usuário:</b> o assistente de IA (v5) só funciona de verdade depois que a "
     "Edge Function chat-ia for publicada no Supabase e o secret GEMINI_API_KEY estiver configurado com "
     "uma chave criada em aistudio.google.com — sem isso, a tela abre normalmente, mas a IA não "
@@ -533,7 +558,8 @@ bullets([
     "<b>Parcialmente testado:</b> o app já foi executado de verdade pela primeira vez fora deste ambiente — "
     "cadastro de usuário funcionou e o e-mail de confirmação do Supabase chegou normalmente. Login, "
     "upload de foto, CRUD completo de viagens/despesas, as novidades da v4 (câmbio, viagem ativa, "
-    "comprovante, exportação) e o assistente de IA (v5) ainda não foram confirmados em uso real.",
+    "comprovante, exportação), o assistente de IA (v5) e o modo roteiro do Agente de vIAgens (v9) ainda "
+    "não foram confirmados em uso real.",
     "Por padrão, o Supabase exige confirmação de e-mail para novas contas — vale revisar essa "
     "configuração no painel do projeto (Authentication) para decidir se isso é desejável na demonstração.",
     "Tratamento de erros de rede ainda é genérico (mensagem fixa) na maior parte das telas, sem "
